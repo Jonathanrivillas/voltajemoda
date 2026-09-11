@@ -1,0 +1,100 @@
+@page "/Account/Manage/Direcciones"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject UserManager<ApplicationUser> UserManager
+@inject ApplicationDbContext Db
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Direcciones de envío</PageTitle>
+
+<h3>Direcciones de envío</h3>
+
+<div class="row mb-4">
+    <div class="col-xl-6">
+        <EditForm Model="nuevaDireccion" OnValidSubmit="AgregarDireccion">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="nuevaDireccion.Calle" id="calle" class="form-control" placeholder="Calle" />
+                <label for="calle">Calle</label>
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="nuevaDireccion.Ciudad" id="ciudad" class="form-control" placeholder="Ciudad" />
+                <label for="ciudad">Ciudad</label>
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="nuevaDireccion.CodigoPostal" id="codigoPostal" class="form-control" placeholder="Código postal" />
+                <label for="codigoPostal">Código postal</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Agregar dirección</button>
+        </EditForm>
+    </div>
+</div>
+
+@if (direcciones is null)
+{
+    <p>Cargando...</p>
+}
+else if (direcciones.Count == 0)
+{
+    <p>Todavía no tienes direcciones guardadas.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var direccion in direcciones)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>@direccion.Calle, @direccion.Ciudad, @direccion.CodigoPostal</span>
+                <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarDireccion(direccion.Id)">Eliminar</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private string userId = string.Empty;
+    private List<Direccion>? direcciones;
+    private Direccion nuevaDireccion = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        userId = UserManager.GetUserId(authState.User) ?? string.Empty;
+        await CargarDirecciones();
+    }
+
+    private async Task CargarDirecciones()
+    {
+        direcciones = await Db.Direcciones
+            .Where(d => d.UsuarioId == userId)
+            .ToListAsync();
+    }
+
+    private async Task AgregarDireccion()
+    {
+        nuevaDireccion.UsuarioId = userId;
+        Db.Direcciones.Add(nuevaDireccion);
+        await Db.SaveChangesAsync();
+
+        nuevaDireccion = new();
+        await CargarDirecciones();
+    }
+
+    private async Task EliminarDireccion(int id)
+    {
+        var direccion = await Db.Direcciones.FindAsync(id);
+        if (direccion is not null)
+        {
+            Db.Direcciones.Remove(direccion);
+            await Db.SaveChangesAsync();
+        }
+
+        await CargarDirecciones();
+    }
+}
