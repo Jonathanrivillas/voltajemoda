@@ -1,0 +1,228 @@
+@page "/checkout"
+@rendermode InteractiveServer
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+@using VoltajeModa.Services
+
+@inject ApplicationDbContext Db
+@inject CarritoService CarritoService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Checkout</PageTitle>
+
+<h1>Checkout</h1>
+
+@if (!cargado)
+{
+    <p>Cargando...</p>
+}
+else if (items is null || items.Count == 0)
+{
+    <p>Tu carrito está vacío. <a href="/productos">Ver catálogo</a></p>
+}
+else
+{
+    @if (error is not null)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    <h5>Resumen del pedido</h5>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Talla / Color</th>
+                <th>Cantidad</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td>@item.ProductoVariante!.Producto!.Nombre</td>
+                    <td>@item.ProductoVariante.Talla / @item.ProductoVariante.Color</td>
+                    <td>@item.Cantidad</td>
+                    <td>@((item.ProductoVariante.Producto.Precio * item.Cantidad).ToString("C"))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <h4 class="text-end">Total: @total.ToString("C")</h4>
+
+    <hr />
+
+    <h5>Dirección de envío</h5>
+
+    @if (usuarioId is not null)
+    {
+        @if (direcciones.Count == 0)
+        {
+            <p>No tienes direcciones guardadas. <a href="/Account/Manage/Direcciones">Agrega una dirección</a> antes de continuar.</p>
+        }
+        else
+        {
+            <select class="form-select mb-3" style="max-width: 400px;" @bind="selectedDireccionId">
+                @foreach (var direccion in direcciones)
+                {
+                    <option value="@direccion.Id">@direccion.Calle, @direccion.Ciudad, @direccion.CodigoPostal</option>
+                }
+            </select>
+        }
+    }
+    else
+    {
+        <p class="text-muted">Puedes comprar sin crear una cuenta — solo indica dónde enviamos tu pedido.</p>
+        <div class="row g-2 mb-3" style="max-width: 500px;">
+            <div class="col-12">
+                <input class="form-control" placeholder="Calle" @bind="nuevaDireccion.Calle" />
+            </div>
+            <div class="col-6">
+                <input class="form-control" placeholder="Ciudad" @bind="nuevaDireccion.Ciudad" />
+            </div>
+            <div class="col-6">
+                <input class="form-control" placeholder="Código postal" @bind="nuevaDireccion.CodigoPostal" />
+            </div>
+        </div>
+    }
+
+    <button class="btn btn-primary" @onclick="ConfirmarPedido" disabled="@procesando">
+        @(procesando ? "Procesando..." : "Confirmar pedido")
+    </button>
+}
+
+@code {
+    private bool cargado;
+    private bool procesando;
+    private string? usuarioId;
+    private string? anonimoId;
+    private int? carritoId;
+    private List<CarritoItem>? items;
+    private List<Direccion> direcciones = new();
+    private int? selectedDireccionId;
+    private Direccion nuevaDireccion = new();
+    private decimal total;
+    private string? error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            usuarioId = authState.User.Identity?.IsAuthenticated == true
+                ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                : null;
+
+            var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
+            carritoId = carrito.Id;
+
+            if (usuarioId is not null)
+            {
+                direcciones = await Db.Direcciones.Where(d => d.UsuarioId == usuarioId).ToListAsync();
+                selectedDireccionId = direcciones.FirstOrDefault()?.Id;
+            }
+            else
+            {
+                anonimoId = await CarritoService.ObtenerOCrearIdAnonimoAsync();
+            }
+
+            await CargarItemsAsync();
+            cargado = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarItemsAsync()
+    {
+        items = await Db.CarritoItems
+            .Where(i => i.CarritoId == carritoId)
+            .Include(i => i.ProductoVariante)
+                .ThenInclude(v => v!.Producto)
+            .ToListAsync();
+
+        total = items.Sum(i => i.ProductoVariante!.Producto!.Precio * i.Cantidad);
+    }
+
+    private async Task ConfirmarPedido()
+    {
+        error = null;
+
+        if (items is null || items.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var item in items)
+        {
+            if (item.Cantidad > item.ProductoVariante!.Stock)
+            {
+                error = $"No hay suficiente stock de {item.ProductoVariante.Producto!.Nombre} ({item.ProductoVariante.Talla}/{item.ProductoVariante.Color}).";
+                return;
+            }
+        }
+
+        int direccionId;
+
+        if (usuarioId is not null)
+        {
+            if (selectedDireccionId is null)
+            {
+                error = "Selecciona una dirección de envío.";
+                return;
+            }
+
+            direccionId = selectedDireccionId.Value;
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(nuevaDireccion.Calle) ||
+                string.IsNullOrWhiteSpace(nuevaDireccion.Ciudad) ||
+                string.IsNullOrWhiteSpace(nuevaDireccion.CodigoPostal))
+            {
+                error = "Completa la dirección de envío.";
+                return;
+            }
+
+            nuevaDireccion.AnonimoId = anonimoId;
+            Db.Direcciones.Add(nuevaDireccion);
+            await Db.SaveChangesAsync();
+            direccionId = nuevaDireccion.Id;
+        }
+
+        procesando = true;
+
+        var pedido = new Pedido
+        {
+            UsuarioId = usuarioId,
+            AnonimoId = usuarioId is null ? anonimoId : null,
+            DireccionId = direccionId,
+            Fecha = DateTime.UtcNow,
+            Estado = EstadoPedido.Pendiente,
+            Total = total
+        };
+
+        foreach (var item in items)
+        {
+            pedido.Items.Add(new PedidoItem
+            {
+                ProductoVarianteId = item.ProductoVarianteId,
+                Cantidad = item.Cantidad,
+                PrecioUnitario = item.ProductoVariante!.Producto!.Precio
+            });
+
+            item.ProductoVariante.Stock -= item.Cantidad;
+        }
+
+        Db.Pedidos.Add(pedido);
+        Db.CarritoItems.RemoveRange(items);
+        await Db.SaveChangesAsync();
+
+        NavigationManager.NavigateTo($"/pedidos/{pedido.Id}");
+    }
+}

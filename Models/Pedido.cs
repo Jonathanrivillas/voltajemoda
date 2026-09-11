@@ -13,7 +13,8 @@ public enum EstadoPedido
 public class Pedido
 {
     public int Id { get; set; }
-    public string UsuarioId { get; set; } = string.Empty;
+    public string? UsuarioId { get; set; }
+    public string? AnonimoId { get; set; }
     public DateTime Fecha { get; set; } = DateTime.UtcNow;
     public EstadoPedido Estado { get; set; } = EstadoPedido.Pendiente;
 

@@ -40,7 +40,7 @@ public class CarritoService(ApplicationDbContext db, ProtectedLocalStorage almac
         return nuevoCarritoAnonimo;
     }
 
-    private async Task<string> ObtenerOCrearIdAnonimoAsync()
+    public async Task<string> ObtenerOCrearIdAnonimoAsync()
     {
         var resultado = await almacenLocal.GetAsync<string>(ClaveAnonimo);
         if (resultado.Success && !string.IsNullOrEmpty(resultado.Value))
@@ -62,12 +62,29 @@ public class CarritoService(ApplicationDbContext db, ProtectedLocalStorage almac
         }
 
         var anonimoId = resultado.Value;
+
+        // Reasignar direcciones y pedidos hechos como invitado a la cuenta con la que se acaba de iniciar sesión.
+        var direccionesAnonimas = await db.Direcciones.Where(d => d.AnonimoId == anonimoId).ToListAsync();
+        foreach (var direccion in direccionesAnonimas)
+        {
+            direccion.UsuarioId = usuarioId;
+            direccion.AnonimoId = null;
+        }
+
+        var pedidosAnonimos = await db.Pedidos.Where(p => p.AnonimoId == anonimoId).ToListAsync();
+        foreach (var pedido in pedidosAnonimos)
+        {
+            pedido.UsuarioId = usuarioId;
+            pedido.AnonimoId = null;
+        }
+
         var carritoAnonimo = await db.Carritos
             .Include(c => c.Items)
             .FirstOrDefaultAsync(c => c.AnonimoId == anonimoId);
 
         if (carritoAnonimo is null)
         {
+            await db.SaveChangesAsync();
             await almacenLocal.DeleteAsync(ClaveAnonimo);
             return;
         }

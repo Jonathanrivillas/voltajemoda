@@ -1,0 +1,99 @@
+@page "/pedidos/{Id:int}"
+@rendermode InteractiveServer
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+@using VoltajeModa.Services
+
+@inject ApplicationDbContext Db
+@inject CarritoService CarritoService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Pedido #@Id</PageTitle>
+
+@if (!cargado)
+{
+    <p>Cargando...</p>
+}
+else if (pedido is null)
+{
+    <p>Pedido no encontrado.</p>
+}
+else
+{
+    <h1>Pedido #@pedido.Id</h1>
+    <p>Fecha: @pedido.Fecha.ToLocalTime().ToString("g")</p>
+    <p>Estado: @pedido.Estado</p>
+    <p>Enviar a: @pedido.Direccion?.Calle, @pedido.Direccion?.Ciudad, @pedido.Direccion?.CodigoPostal</p>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Talla / Color</th>
+                <th>Cantidad</th>
+                <th>Precio unitario</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in pedido.Items)
+            {
+                <tr>
+                    <td>@item.ProductoVariante?.Producto?.Nombre</td>
+                    <td>@item.ProductoVariante?.Talla / @item.ProductoVariante?.Color</td>
+                    <td>@item.Cantidad</td>
+                    <td>@item.PrecioUnitario.ToString("C")</td>
+                    <td>@((item.PrecioUnitario * item.Cantidad).ToString("C"))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h4 class="text-end">Total: @pedido.Total.ToString("C")</h4>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private bool cargado;
+    private Pedido? pedido;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var usuarioId = authState.User.Identity?.IsAuthenticated == true
+                ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                : null;
+
+            var encontrado = await Db.Pedidos
+                .Include(p => p.Direccion)
+                .Include(p => p.Items)
+                    .ThenInclude(i => i.ProductoVariante)
+                        .ThenInclude(v => v!.Producto)
+                .FirstOrDefaultAsync(p => p.Id == Id);
+
+            if (encontrado is not null)
+            {
+                // El pedido solo se muestra si pertenece al usuario logueado, o al visitante anónimo
+                // (identificado por el id guardado en su navegador) que lo generó — evita ver pedidos ajenos.
+                var esDelUsuario = usuarioId is not null && encontrado.UsuarioId == usuarioId;
+                var esDelAnonimo = usuarioId is null && encontrado.AnonimoId == await CarritoService.ObtenerOCrearIdAnonimoAsync();
+
+                if (esDelUsuario || esDelAnonimo)
+                {
+                    pedido = encontrado;
+                }
+            }
+
+            cargado = true;
+            StateHasChanged();
+        }
+    }
+}

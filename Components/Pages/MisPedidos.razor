@@ -1,0 +1,66 @@
+@page "/mis-pedidos"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Mis pedidos</PageTitle>
+
+<h1>Mis pedidos</h1>
+
+@if (pedidos is null)
+{
+    <p>Cargando...</p>
+}
+else if (pedidos.Count == 0)
+{
+    <p>Todavía no tienes pedidos. <a href="/productos">Ver catálogo</a></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Total</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var pedido in pedidos)
+            {
+                <tr>
+                    <td>@pedido.Fecha.ToLocalTime().ToString("g")</td>
+                    <td>@pedido.Estado</td>
+                    <td>@pedido.Total.ToString("C")</td>
+                    <td><a href="/pedidos/@pedido.Id">Ver detalle</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Pedido>? pedidos;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        var usuarioId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        pedidos = await Db.Pedidos
+            .Where(p => p.UsuarioId == usuarioId)
+            .OrderByDescending(p => p.Fecha)
+            .ToListAsync();
+    }
+}
