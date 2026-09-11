@@ -1,0 +1,49 @@
+@page "/productos/{Id:int}"
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+@inject ApplicationDbContext Db
+
+<PageTitle>@(producto?.Nombre ?? "Producto")</PageTitle>
+
+@if (producto is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-5">
+            <img src="@producto.ImagenUrl" class="img-fluid" alt="@producto.Nombre" />
+        </div>
+        <div class="col-md-7">
+            <h1>@producto.Nombre</h1>
+            <p>@producto.Descripcion</p>
+            <p><strong>@producto.Precio.ToString("C")</strong></p>
+            <p>Categoría: @producto.Categoria?.Nombre</p>
+
+            <h5>Variantes disponibles</h5>
+            <ul>
+                @foreach (var variante in producto.Variantes)
+                {
+                    <li>Talla @variante.Talla, Color @variante.Color — Stock: @variante.Stock</li>
+                }
+            </ul>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Producto? producto;
+
+    protected override async Task OnInitializedAsync()
+    {
+        producto = await Db.Productos
+            .Include(p => p.Categoria)
+            .Include(p => p.Variantes)
+            .FirstOrDefaultAsync(p => p.Id == Id);
+    }
+}

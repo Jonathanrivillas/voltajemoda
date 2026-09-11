@@ -1,0 +1,70 @@
+@page "/productos"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+@inject ApplicationDbContext Db
+
+<PageTitle>Productos</PageTitle>
+
+<h1>Catálogo</h1>
+
+@if (productos is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <select class="form-select mb-3" style="max-width: 300px;" @bind="selectedCategoriaId">
+        <option value="">Todas las categorías</option>
+        @foreach (var categoria in categorias)
+        {
+            <option value="@categoria.Id">@categoria.Nombre</option>
+        }
+    </select>
+
+    var productosFiltrados = ProductosFiltrados.ToList();
+
+    if (productosFiltrados.Count == 0)
+    {
+        <p>No hay productos para mostrar.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var producto in productosFiltrados)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <img src="@producto.ImagenUrl" class="card-img-top" alt="@producto.Nombre" />
+                        <div class="card-body">
+                            <h5 class="card-title">@producto.Nombre</h5>
+                            <p class="card-text">@producto.Categoria?.Nombre</p>
+                            <p class="card-text"><strong>@producto.Precio.ToString("C")</strong></p>
+                            <a href="/productos/@producto.Id" class="btn btn-primary">Ver detalle</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<Producto>? productos;
+    private List<Categoria> categorias = new();
+    private int? selectedCategoriaId;
+
+    private IEnumerable<Producto> ProductosFiltrados =>
+        selectedCategoriaId is null
+            ? productos!
+            : productos!.Where(p => p.CategoriaId == selectedCategoriaId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        categorias = await Db.Categorias.ToListAsync();
+        productos = await Db.Productos
+            .Include(p => p.Categoria)
+            .ToListAsync();
+    }
+}
