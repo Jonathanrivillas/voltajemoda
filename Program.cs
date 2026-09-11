@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using VoltajeModa.Components;
 using VoltajeModa.Components.Account;
 using VoltajeModa.Data;
+using VoltajeModa.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+builder.Services.AddScoped<CarritoService>();
 
 var app = builder.Build();
 

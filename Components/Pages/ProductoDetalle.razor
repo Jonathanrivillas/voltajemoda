@@ -1,8 +1,16 @@
 @page "/productos/{Id:int}"
+@rendermode InteractiveServer
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
 @using VoltajeModa.Data
 @using VoltajeModa.Models
+@using VoltajeModa.Services
+
 @inject ApplicationDbContext Db
+@inject CarritoService CarritoService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>@(producto?.Nombre ?? "Producto")</PageTitle>
 
@@ -22,13 +30,34 @@ else
             <p><strong>@producto.Precio.ToString("C")</strong></p>
             <p>Categoría: @producto.Categoria?.Nombre</p>
 
-            <h5>Variantes disponibles</h5>
-            <ul>
-                @foreach (var variante in producto.Variantes)
-                {
-                    <li>Talla @variante.Talla, Color @variante.Color — Stock: @variante.Stock</li>
-                }
-            </ul>
+            @if (mensaje is not null)
+            {
+                <div class="alert alert-success">@mensaje</div>
+            }
+
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-auto">
+                    <label for="variante" class="form-label">Talla / Color</label>
+                    <select id="variante" class="form-select" @bind="selectedVarianteId">
+                        <option value="">Selecciona una opción</option>
+                        @foreach (var variante in producto.Variantes)
+                        {
+                            <option value="@variante.Id" disabled="@(variante.Stock == 0)">
+                                @variante.Talla / @variante.Color (@(variante.Stock == 0 ? "Sin stock" : $"Stock: {variante.Stock}"))
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label for="cantidad" class="form-label">Cantidad</label>
+                    <input id="cantidad" type="number" class="form-control" style="width: 100px;" min="1" @bind="cantidad" />
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" @onclick="AgregarAlCarrito" disabled="@(selectedVarianteId is null)">
+                        Agregar al carrito
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 }
@@ -38,6 +67,9 @@ else
     public int Id { get; set; }
 
     private Producto? producto;
+    private int? selectedVarianteId;
+    private int cantidad = 1;
+    private string? mensaje;
 
     protected override async Task OnInitializedAsync()
     {
@@ -45,5 +77,40 @@ else
             .Include(p => p.Categoria)
             .Include(p => p.Variantes)
             .FirstOrDefaultAsync(p => p.Id == Id);
+    }
+
+    private async Task AgregarAlCarrito()
+    {
+        if (selectedVarianteId is null || cantidad < 1)
+        {
+            return;
+        }
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var usuarioId = authState.User.Identity?.IsAuthenticated == true
+            ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            : null;
+
+        var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
+
+        var item = await Db.CarritoItems.FirstOrDefaultAsync(i =>
+            i.CarritoId == carrito.Id && i.ProductoVarianteId == selectedVarianteId);
+
+        if (item is null)
+        {
+            Db.CarritoItems.Add(new CarritoItem
+            {
+                CarritoId = carrito.Id,
+                ProductoVarianteId = selectedVarianteId.Value,
+                Cantidad = cantidad
+            });
+        }
+        else
+        {
+            item.Cantidad += cantidad;
+        }
+
+        await Db.SaveChangesAsync();
+        mensaje = "Producto agregado al carrito.";
     }
 }

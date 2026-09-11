@@ -1,0 +1,124 @@
+@page "/carrito"
+@rendermode InteractiveServer
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+@using VoltajeModa.Services
+
+@inject ApplicationDbContext Db
+@inject CarritoService CarritoService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Carrito</PageTitle>
+
+<h1>Tu carrito</h1>
+
+@if (!cargado)
+{
+    <p>Cargando...</p>
+}
+else if (items is null || items.Count == 0)
+{
+    <p>Tu carrito está vacío. <a href="/productos">Ver catálogo</a></p>
+}
+else
+{
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Talla / Color</th>
+                <th>Precio</th>
+                <th>Cantidad</th>
+                <th>Subtotal</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td>@item.ProductoVariante!.Producto!.Nombre</td>
+                    <td>@item.ProductoVariante.Talla / @item.ProductoVariante.Color</td>
+                    <td>@item.ProductoVariante.Producto.Precio.ToString("C")</td>
+                    <td style="width: 120px;">
+                        <input type="number" class="form-control" min="1" value="@item.Cantidad"
+                               @onchange="@(e => ActualizarCantidad(item.Id, e.Value))" />
+                    </td>
+                    <td>@((item.ProductoVariante.Producto.Precio * item.Cantidad).ToString("C"))</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarItem(item.Id)">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h4 class="text-end">Total: @total.ToString("C")</h4>
+}
+
+@code {
+    private bool cargado;
+    private int? carritoId;
+    private List<CarritoItem>? items;
+    private decimal total;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var usuarioId = authState.User.Identity?.IsAuthenticated == true
+                ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                : null;
+
+            var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
+            carritoId = carrito.Id;
+
+            await CargarItemsAsync();
+            cargado = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarItemsAsync()
+    {
+        items = await Db.CarritoItems
+            .Where(i => i.CarritoId == carritoId)
+            .Include(i => i.ProductoVariante)
+                .ThenInclude(v => v!.Producto)
+            .ToListAsync();
+
+        total = items.Sum(i => i.ProductoVariante!.Producto!.Precio * i.Cantidad);
+    }
+
+    private async Task ActualizarCantidad(int itemId, object? valor)
+    {
+        if (int.TryParse(valor?.ToString(), out var nuevaCantidad) && nuevaCantidad >= 1)
+        {
+            var itemDb = await Db.CarritoItems.FindAsync(itemId);
+            if (itemDb is not null)
+            {
+                itemDb.Cantidad = nuevaCantidad;
+                await Db.SaveChangesAsync();
+            }
+        }
+
+        await CargarItemsAsync();
+    }
+
+    private async Task EliminarItem(int itemId)
+    {
+        var itemDb = await Db.CarritoItems.FindAsync(itemId);
+        if (itemDb is not null)
+        {
+            Db.CarritoItems.Remove(itemDb);
+            await Db.SaveChangesAsync();
+        }
+
+        await CargarItemsAsync();
+    }
+}
