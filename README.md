@@ -131,3 +131,4 @@ Cuando veas HTML repetido entre dos o más páginas, es buena señal de que debe
 ## Cómo contribuir
 
 Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para el flujo de ramas, Pull Requests, y el mecanismo de migraciones de base de datos.
+

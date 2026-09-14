@@ -1,3 +1,4 @@
+using Azure.Communication.Email;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -37,7 +38,17 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+}
+else
+{
+    var acsConnectionString = builder.Configuration["AzureCommunicationServices:ConnectionString"]
+        ?? throw new InvalidOperationException("Falta configurar AzureCommunicationServices:ConnectionString.");
+    builder.Services.AddSingleton(new EmailClient(acsConnectionString));
+    builder.Services.AddSingleton<IEmailSender<ApplicationUser>, AzureEmailSender>();
+}
 
 builder.Services.AddScoped<CarritoService>();
 
@@ -47,11 +58,20 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
-    DbSeeder.Seed(db);
 
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    await IdentitySeeder.SeedAsync(roleManager, userManager);
+    await IdentitySeeder.SeedRolesAsync(roleManager);
+
+    // Datos de catálogo de prueba y el usuario administrador de contraseña conocida
+    // son solo para desarrollo local: en producción se cargan/crean manualmente.
+    if (app.Environment.IsDevelopment())
+    {
+        DbSeeder.Seed(db);
+
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        await IdentitySeeder.SeedDevAdminAsync(userManager, logger);
+    }
 }
 
 // Configure the HTTP request pipeline.
