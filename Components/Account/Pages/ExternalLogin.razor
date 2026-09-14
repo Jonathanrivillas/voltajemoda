@@ -30,8 +30,6 @@
 
         <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync" FormName="confirmation" method="post">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-
             <div class="form-floating mb-3">
                 <InputText @bind-Value="Input.Nombre" id="Input.Nombre" class="form-control" autocomplete="name" aria-required="true" placeholder="Tu nombre completo" />
                 <label for="Input.Nombre">Nombre completo</label>

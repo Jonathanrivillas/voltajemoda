@@ -38,11 +38,11 @@
 
 @if (direcciones is null)
 {
-    <p>Cargando...</p>
+    <Cargando />
 }
 else if (direcciones.Count == 0)
 {
-    <p>Todavía no tienes direcciones guardadas.</p>
+    <EstadoVacio Mensaje="Todavía no tienes direcciones guardadas." />
 }
 else
 {
