@@ -17,9 +17,7 @@ Funcionalidades ya implementadas y operativas de punta a punta:
 ### Backlog / próximos pasos (no implementado todavía)
 
 - Pasarela de pago real (hoy el checkout es simulado).
-- Envío de emails reales (confirmación de cuenta, notificaciones de pedido — hoy usa un sender "no-op" de desarrollo).
 - Búsqueda de productos, cupones/descuentos por código, subida de imágenes (hoy las imágenes son por URL externa).
-- Despliegue a un entorno de producción.
 - Reemplazar los placeholders del footer (redes sociales, teléfono) por los datos reales.
 - Rehacer todo el diseño visual de las interfaces.
 - Pruebas automatizadas (unitarias/integración).
@@ -50,9 +48,11 @@ dotnet run
 
 - Trabaja siempre a partir de la rama `desarrollo` (ver [CONTRIBUTING.md](./CONTRIBUTING.md) para el flujo completo de ramas y Pull Requests).
 - `dotnet ef database update` crea la base de datos `VoltajeModaDb` y aplica todas las migraciones existentes.
-- Al arrancar, la app siembra automáticamente datos de prueba (categorías, productos con variantes, una oferta) y roles (`Cliente`, `Administrador`), incluyendo un usuario administrador de prueba:
+- Al arrancar **en desarrollo local únicamente**, la app siembra automáticamente datos de prueba (categorías, productos con variantes, una oferta) y roles (`Cliente`, `Administrador`), incluyendo un usuario administrador de prueba:
   - **Email:** `admin@voltajemoda.com`
   - **Contraseña:** `Admin123!`
+  
+  Este usuario **no existe en producción** (el seeding de datos demo y del admin de prueba está condicionado a `IsDevelopment()` en `Program.cs`). En producción, el primer administrador se asigna manualmente en la base de datos — ver la sección "Despliegue" más abajo.
 
 Si no tienes la herramienta `dotnet-ef` instalada:
 
@@ -127,6 +127,15 @@ Cuando veas HTML repetido entre dos o más páginas, es buena señal de que debe
 - **Precio de un producto:** usa siempre `producto.PrecioEfectivo` (no `producto.Precio` directamente) para cualquier cálculo de dinero real (carrito, checkout, totales) — respeta automáticamente si el producto está en oferta. `Precio` es el precio de lista, útil solo para mostrarlo tachado.
 - **Colores:** paleta blanco/negro aplicada globalmente en `wwwroot/app.css` (sobreescribe `.btn-primary`, `.text-primary`, `.bg-primary` de Bootstrap). Usa clases `btn-dark` / `btn-outline-dark` en vistas nuevas en vez de `btn-primary`, para consistencia visual.
 - Después de cambiar cualquier clase en `Models/`, hace falta una migración — pero **no la generes tú mismo**, ver [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Despliegue
+
+La app corre en producción sobre **Azure App Service** (Linux, .NET 10) + **Azure SQL Database**, con **Azure Communication Services** para el envío real de emails (confirmación de cuenta, reseteo de contraseña).
+
+- El despliegue es **automático**: cada push a `main` dispara un workflow de GitHub Actions (`.github/workflows/main_voltajemoda.yml`) que compila y publica la app.
+- Las credenciales (connection string de SQL, connection string de Azure Communication Services) se configuran como variables de entorno/cadenas de conexión directamente en el App Service — **nunca** en `appsettings.json` ni en el repo.
+- El primer administrador en producción se crea registrándose normalmente en el sitio y luego asignándole el rol `Administrador` manualmente vía SQL (no hay todavía una pantalla de gestión de roles en el panel admin).
+- Esto lo gestiona exclusivamente el dueño del proyecto, igual que las migraciones (ver [CONTRIBUTING.md](./CONTRIBUTING.md)).
 
 ## Cómo contribuir
 
