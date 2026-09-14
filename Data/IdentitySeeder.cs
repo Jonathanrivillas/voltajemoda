@@ -1,21 +1,30 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 
 namespace VoltajeModa.Data;
 
 public static class IdentitySeeder
 {
-    public static async Task SeedAsync(RoleManager<IdentityRole> roleManager, UserManager<ApplicationUser> userManager)
-    {
-        string[] roles = ["Cliente", "Administrador"];
+    private static readonly string[] Roles = ["Cliente", "Administrador"];
 
-        foreach (var role in roles)
+    public static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
+    {
+        foreach (var role in Roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
                 await roleManager.CreateAsync(new IdentityRole(role));
             }
         }
+    }
 
+    /// <summary>
+    /// Crea un usuario administrador de prueba con contraseña conocida. Solo debe llamarse en
+    /// entornos de desarrollo: en producción el administrador se crea manualmente con una
+    /// contraseña fuerte y única.
+    /// </summary>
+    public static async Task SeedDevAdminAsync(UserManager<ApplicationUser> userManager, ILogger logger)
+    {
         const string adminEmail = "admin@voltajemoda.com";
         var adminUser = await userManager.FindByEmailAsync(adminEmail);
 
@@ -29,7 +38,13 @@ public static class IdentitySeeder
                 EmailConfirmed = true
             };
 
-            await userManager.CreateAsync(adminUser, "Admin123!");
+            var result = await userManager.CreateAsync(adminUser, "Admin123!");
+            if (!result.Succeeded)
+            {
+                logger.LogError("No se pudo crear el usuario administrador de prueba: {Errors}",
+                    string.Join(", ", result.Errors.Select(e => e.Description)));
+                return;
+            }
         }
 
         if (!await userManager.IsInRoleAsync(adminUser, "Administrador"))
