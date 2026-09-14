@@ -81,6 +81,16 @@
 
         if (!result.Succeeded)
         {
+            if (result.Errors.Any(error => error.Code is "DuplicateUserName" or "DuplicateEmail"))
+            {
+                // No revelamos que el correo ya está registrado: mismo comportamiento visible
+                // que un registro exitoso, para evitar que alguien pueda enumerar cuentas existentes.
+                RedirectManager.RedirectTo(
+                    "Account/RegisterConfirmation",
+                    new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
+                return;
+            }
+
             identityErrors = result.Errors;
             return;
         }
