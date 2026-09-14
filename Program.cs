@@ -35,6 +35,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
     {
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
+        options.AuthorizationEndpoint += "?prompt=select_account";
     });
 }
 
