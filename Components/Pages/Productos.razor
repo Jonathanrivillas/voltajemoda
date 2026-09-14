@@ -35,15 +35,7 @@ else
             @foreach (var producto in productosFiltrados)
             {
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                        <img src="@producto.ImagenUrl" class="card-img-top" alt="@producto.Nombre" />
-                        <div class="card-body">
-                            <h5 class="card-title">@producto.Nombre</h5>
-                            <p class="card-text">@producto.Categoria?.Nombre</p>
-                            <p class="card-text"><strong>@producto.Precio.ToString("C")</strong></p>
-                            <a href="/productos/@producto.Id" class="btn btn-primary">Ver detalle</a>
-                        </div>
-                    </div>
+                    <ProductoCard Producto="producto" />
                 </div>
             }
         </div>

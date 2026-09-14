@@ -1,0 +1,133 @@
+# Voltaje Moda
+
+Ecommerce de ropa construido en **Blazor Web App** (.NET 10), full-stack en C#: un mismo proyecto sirve tanto la lógica de servidor como la interfaz. No hay una separación de repos/deploys entre "frontend" y "backend" — es un solo codebase, y se espera que **todo el equipo trabaje en ambas partes** según lo que necesite la funcionalidad que esté construyendo.
+
+## Alcance actual del proyecto
+
+Funcionalidades ya implementadas y operativas de punta a punta:
+
+- **Catálogo**: productos con variantes (talla/color) y stock por variante, categorías, filtro por categoría, productos en oferta (precio original + precio de oferta).
+- **Cuentas**: registro/login (ASP.NET Core Identity), roles `Cliente` y `Administrador`, perfil editable, gestión de direcciones de envío.
+- **Carrito**: funciona con o sin cuenta (invitado). El carrito de un invitado se fusiona automáticamente con su cuenta al iniciar sesión.
+- **Checkout**: con o sin cuenta, valida stock disponible, descuenta stock al confirmar, respeta el precio de oferta vigente.
+- **Historial de pedidos** del cliente, y **detalle de pedido** (accesible tanto por el dueño registrado como por el invitado que lo generó).
+- **Panel de administración** (`/admin`, solo rol `Administrador`): CRUD de productos (incluyendo variantes) y categorías, gestión de pedidos y cambio de estado. Con protecciones para no borrar en cascada datos con historial real (ver "Convenciones" más abajo).
+- **Diseño base**: navbar superior, footer con contacto/redes (placeholders, ver más abajo), paleta blanco/negro aplicada globalmente.
+
+### Backlog / próximos pasos (no implementado todavía)
+
+- Pasarela de pago real (hoy el checkout es simulado).
+- Envío de emails reales (confirmación de cuenta, notificaciones de pedido — hoy usa un sender "no-op" de desarrollo).
+- Búsqueda de productos, cupones/descuentos por código, subida de imágenes (hoy las imágenes son por URL externa).
+- Despliegue a un entorno de producción.
+- Reemplazar los placeholders del footer (redes sociales, teléfono) por los datos reales.
+- Rehacer todo el diseño visual de las interfaces.
+- Pruebas automatizadas (unitarias/integración).
+
+## Stack
+
+- **.NET 10** (Blazor Web App, interactividad Server)
+- **Entity Framework Core 10** + **SQL Server Express**
+- **ASP.NET Core Identity** (registro/login, roles `Cliente` / `Administrador`)
+- **Bootstrap** (incluido por la plantilla)
+
+## Requisitos previos
+
+- [.NET SDK 10](https://dotnet.microsoft.com/download)
+- **SQL Server Express** instalado localmente (instalación "Basic"), con la instancia por defecto `SQLEXPRESS`. Si tu instancia se llama distinto, ajusta la cadena de conexión en `appsettings.json`.
+- Editor: VS Code + extensión **C# Dev Kit** (o Visual Studio 2022).
+
+## Cómo levantar el proyecto
+
+```powershell
+git clone https://github.com/Jonathanrivillas/voltajemoda.git
+cd voltajemoda
+git checkout desarrollo
+dotnet restore
+dotnet ef database update
+dotnet run
+```
+
+- Trabaja siempre a partir de la rama `desarrollo` (ver [CONTRIBUTING.md](./CONTRIBUTING.md) para el flujo completo de ramas y Pull Requests).
+- `dotnet ef database update` crea la base de datos `VoltajeModaDb` y aplica todas las migraciones existentes.
+- Al arrancar, la app siembra automáticamente datos de prueba (categorías, productos con variantes, una oferta) y roles (`Cliente`, `Administrador`), incluyendo un usuario administrador de prueba:
+  - **Email:** `admin@voltajemoda.com`
+  - **Contraseña:** `Admin123!`
+
+Si no tienes la herramienta `dotnet-ef` instalada:
+
+```powershell
+dotnet tool install --global dotnet-ef
+```
+
+> **Importante:** no corras `dotnet ef migrations add` tú mismo salvo que seas el dueño del proyecto. Ver la sección de migraciones en [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Estructura del proyecto
+
+```
+Models/           Entidades de dominio (Producto, Categoria, Carrito, Pedido, etc.) — el "backend" de datos
+Data/             ApplicationDbContext, ApplicationUser, sembradores de datos, Migrations/
+Services/         Servicios de negocio compartidos entre varias páginas (ej. CarritoService)
+Components/
+  Pages/          Páginas públicas (Home, Productos, Carrito, Checkout, MisPedidos...)
+  Pages/Admin/    Panel de administración (protegido por rol "Administrador")
+  Account/        Login/Registro/gestión de cuenta (scaffolding de Identity)
+  Layout/         MainLayout, NavMenu, Footer, AdminLayout
+  Shared/         Componentes reutilizables sin ruta propia (ej. ProductoCard)
+```
+
+Como el proyecto es un solo Blazor Web App, una misma página `.razor` normalmente mezcla ambas capas: la parte "backend" (consultas EF Core, validaciones, reglas de negocio en el bloque `@code`) y la parte "frontend" (el marcado HTML/Razor de arriba). No hay una API separada que consumir — Blazor Server llama directo a `ApplicationDbContext`/servicios desde el propio componente.
+
+## Cómo agregar una nueva vista (página)
+
+1. Crea un archivo `.razor` en `Components/Pages/` (o en `Components/Pages/Admin/` si es del panel de administración).
+2. Agrega la directiva de ruta arriba del todo: `@page "/mi-ruta"`.
+3. Decide el modo de renderizado:
+   - Si la página **no tiene eventos** (clics, formularios que reaccionan en vivo, `@bind`), déjala sin nada — se sirve como HTML estático (SSR), más liviano.
+   - Si la página **necesita interactividad** (`@onclick`, `@bind` con actualización en vivo), agrega `@rendermode InteractiveServer` justo debajo de `@page`. Sin esto, los eventos simplemente no disparan nada (ver "Convenciones" abajo).
+4. Si necesitas acceso a datos: `@inject ApplicationDbContext Db` (y `@using Microsoft.EntityFrameworkCore` para los métodos async como `ToListAsync()`).
+5. Si la página es solo para cierto rol, agrega `@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Administrador")]` (o sin `Roles` para exigir solo estar logueado).
+6. Agrega el link correspondiente en `Components/Layout/NavMenu.razor` si debe aparecer en el menú.
+
+## Cómo crear y usar un componente reutilizable
+
+Un componente reutilizable es un `.razor` **sin** `@page` — no es una ruta navegable, es una pieza de UI que insertas dentro de otras páginas con su propio tag. Ejemplo real ya en el proyecto: `Components/Shared/ProductoCard.razor`, usado tanto en `Productos.razor` como en `Home.razor` para no repetir el HTML de la tarjeta de producto.
+
+```razor
+@* Components/Shared/ProductoCard.razor *@
+<div class="card h-100">
+    <h5 class="card-title">@Producto.Nombre</h5>
+    ...
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public Producto Producto { get; set; } = default!;
+
+    [Parameter]
+    public bool MostrarCategoria { get; set; } = true;
+}
+```
+
+Y se usa así en cualquier página (no necesita `@using` adicional — `Components/Shared` ya está importado globalmente en `_Imports.razor`):
+
+```razor
+<ProductoCard Producto="producto" MostrarCategoria="false" />
+```
+
+Cuando veas HTML repetido entre dos o más páginas, es buena señal de que debería ser un componente en `Components/Shared/`.
+
+## Convenciones a tener en cuenta
+
+- **Nombres en español** para todo lo del dominio del ecommerce (clases, propiedades, rutas) — el código de infraestructura/Identity que viene de la plantilla de Microsoft se dejó en inglés tal como se genera.
+- **Modos de renderizado de Blazor:** las páginas son estáticas (SSR) por defecto. Si tu página necesita reaccionar a eventos (`@onclick`, `@bind` con cambios en vivo), agrégale `@rendermode InteractiveServer` explícitamente — si no, los eventos simplemente no van a disparar nada.
+- **Carrito y checkout funcionan sin cuenta** (invitados): el visitante anónimo se identifica con un id guardado vía `ProtectedLocalStorage` en su navegador (`Services/CarritoService.cs`). Por eso `Carrito`, `Direccion` y `Pedido` tienen `UsuarioId` **y** `AnonimoId`, ambos opcionales — un registro pertenece a uno u otro. Al iniciar sesión, todo lo anónimo se reasigna automáticamente a la cuenta.
+- **`ProtectedLocalStorage` necesita JS interop**, que no está disponible durante el prerenderizado — por eso las páginas que lo usan (`Carrito.razor`, `Checkout.razor`) cargan sus datos en `OnAfterRenderAsync(firstRender)`, no en `OnInitializedAsync`.
+- **Cuidado con `ON DELETE CASCADE`:** borrar una `Categoria` con productos, o un `Producto`/`ProductoVariante` con pedidos asociados, borraría en cascada historial real. Las páginas de administración ya validan esto — si agregas nuevas formas de borrar datos, replica esa validación.
+- **Precio de un producto:** usa siempre `producto.PrecioEfectivo` (no `producto.Precio` directamente) para cualquier cálculo de dinero real (carrito, checkout, totales) — respeta automáticamente si el producto está en oferta. `Precio` es el precio de lista, útil solo para mostrarlo tachado.
+- **Colores:** paleta blanco/negro aplicada globalmente en `wwwroot/app.css` (sobreescribe `.btn-primary`, `.text-primary`, `.bg-primary` de Bootstrap). Usa clases `btn-dark` / `btn-outline-dark` en vistas nuevas en vez de `btn-primary`, para consistencia visual.
+- Después de cambiar cualquier clase en `Models/`, hace falta una migración — pero **no la generes tú mismo**, ver [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Cómo contribuir
+
+Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para el flujo de ramas, Pull Requests, y el mecanismo de migraciones de base de datos.

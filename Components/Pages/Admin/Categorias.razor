@@ -1,0 +1,97 @@
+@page "/admin/categorias"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Categorías</PageTitle>
+
+<h3>Categorías</h3>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<EditForm Model="nuevaCategoria" OnValidSubmit="AgregarCategoria" class="row g-2 mb-4 align-items-end">
+    <div class="col-auto">
+        <label for="nombre" class="form-label">Nueva categoría</label>
+        <InputText id="nombre" class="form-control" @bind-Value="nuevaCategoria.Nombre" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Agregar</button>
+    </div>
+</EditForm>
+
+@if (categorias is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Productos</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var categoria in categorias)
+            {
+                <tr>
+                    <td>@categoria.Nombre</td>
+                    <td>@categoria.Productos.Count</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(categoria)">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Categoria>? categorias;
+    private Categoria nuevaCategoria = new();
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        categorias = await Db.Categorias
+            .Include(c => c.Productos)
+            .ToListAsync();
+    }
+
+    private async Task AgregarCategoria()
+    {
+        Db.Categorias.Add(nuevaCategoria);
+        await Db.SaveChangesAsync();
+        nuevaCategoria = new();
+        await CargarAsync();
+    }
+
+    private async Task Eliminar(Categoria categoria)
+    {
+        error = null;
+
+        if (categoria.Productos.Count > 0)
+        {
+            error = $"No se puede eliminar '{categoria.Nombre}': todavía tiene {categoria.Productos.Count} producto(s) asociado(s).";
+            return;
+        }
+
+        Db.Categorias.Remove(categoria);
+        await Db.SaveChangesAsync();
+        await CargarAsync();
+    }
+}

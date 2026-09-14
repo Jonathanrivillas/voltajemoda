@@ -1,0 +1,87 @@
+@page "/admin/productos"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Productos</PageTitle>
+
+<h3>Productos</h3>
+
+<a href="/admin/productos/nuevo" class="btn btn-primary mb-3">Nuevo producto</a>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (productos is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Variantes</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var producto in productos)
+            {
+                <tr>
+                    <td>@producto.Nombre</td>
+                    <td>@producto.Categoria?.Nombre</td>
+                    <td>@producto.Precio.ToString("C")</td>
+                    <td>@producto.Variantes.Count</td>
+                    <td>
+                        <a href="/admin/productos/@producto.Id/editar" class="btn btn-sm btn-outline-secondary">Editar</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(producto)">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Producto>? productos;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        productos = await Db.Productos
+            .Include(p => p.Categoria)
+            .Include(p => p.Variantes)
+            .ToListAsync();
+    }
+
+    private async Task Eliminar(Producto producto)
+    {
+        error = null;
+
+        var fueComprado = await Db.PedidoItems.AnyAsync(pi => pi.ProductoVariante!.ProductoId == producto.Id);
+        if (fueComprado)
+        {
+            error = $"No se puede eliminar '{producto.Nombre}': ya tiene pedidos asociados.";
+            return;
+        }
+
+        Db.Productos.Remove(producto);
+        await Db.SaveChangesAsync();
+        await CargarAsync();
+    }
+}

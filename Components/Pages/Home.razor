@@ -1,7 +1,71 @@
-﻿@page "/"
+@page "/"
 
-<PageTitle>Home</PageTitle>
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
 
-<h1>Hello, world!</h1>
+@inject ApplicationDbContext Db
 
-Welcome to your new app.
+<PageTitle>Voltaje Moda</PageTitle>
+
+<div class="p-5 mb-4 bg-dark text-white rounded-3">
+    <div class="container-fluid py-4">
+        <h1 class="display-5 fw-bold">Voltaje Moda</h1>
+        <p class="col-md-8 fs-4">Ropa con energía. Explora el catálogo y arma tu pedido en minutos, con o sin cuenta.</p>
+        <a href="/productos" class="btn btn-light btn-lg">Ver catálogo</a>
+    </div>
+</div>
+
+@if (ofertas is not null && ofertas.Count > 0)
+{
+    <h2 class="mb-3">Ofertas destacadas</h2>
+    <div class="row mb-5">
+        @foreach (var producto in ofertas)
+        {
+            <div class="col-md-3 mb-3">
+                <ProductoCard Producto="producto" MostrarCategoria="false" />
+            </div>
+        }
+    </div>
+}
+
+<h2 class="mb-3">Categorías</h2>
+
+@if (categorias is null)
+{
+    <p>Cargando...</p>
+}
+else if (categorias.Count == 0)
+{
+    <p>Todavía no hay categorías cargadas.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var categoria in categorias)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@categoria.Nombre</h5>
+                        <a href="/productos" class="btn btn-outline-dark btn-sm">Explorar</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Categoria>? categorias;
+    private List<Producto>? ofertas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        categorias = await Db.Categorias.ToListAsync();
+        ofertas = await Db.Productos
+            .Where(p => p.EnOferta)
+            .Take(4)
+            .ToListAsync();
+    }
+}

@@ -1,0 +1,87 @@
+@page "/admin/pedidos/{Id:int}"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Pedido #@Id</PageTitle>
+
+@if (pedido is null)
+{
+    <p>Pedido no encontrado.</p>
+}
+else
+{
+    <h3>Pedido #@pedido.Id</h3>
+    <p>Fecha: @pedido.Fecha.ToLocalTime().ToString("g")</p>
+    <p>Cliente: @cliente</p>
+    <p>Enviar a: @pedido.Direccion?.Calle, @pedido.Direccion?.Ciudad, @pedido.Direccion?.CodigoPostal</p>
+
+    <div class="mb-3" style="max-width: 250px;">
+        <label class="form-label">Estado</label>
+        <select class="form-select" @bind="pedido.Estado" @bind:after="GuardarEstado">
+            @foreach (var estado in Enum.GetValues<EstadoPedido>())
+            {
+                <option value="@estado">@estado</option>
+            }
+        </select>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Talla / Color</th>
+                <th>Cantidad</th>
+                <th>Precio unitario</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in pedido.Items)
+            {
+                <tr>
+                    <td>@item.ProductoVariante?.Producto?.Nombre</td>
+                    <td>@item.ProductoVariante?.Talla / @item.ProductoVariante?.Color</td>
+                    <td>@item.Cantidad</td>
+                    <td>@item.PrecioUnitario.ToString("C")</td>
+                    <td>@((item.PrecioUnitario * item.Cantidad).ToString("C"))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h4 class="text-end">Total: @pedido.Total.ToString("C")</h4>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Pedido? pedido;
+    private string cliente = "Invitado";
+
+    protected override async Task OnInitializedAsync()
+    {
+        pedido = await Db.Pedidos
+            .Include(p => p.Direccion)
+            .Include(p => p.Items)
+                .ThenInclude(i => i.ProductoVariante)
+                    .ThenInclude(v => v!.Producto)
+            .FirstOrDefaultAsync(p => p.Id == Id);
+
+        if (pedido?.UsuarioId is not null)
+        {
+            var usuario = await Db.Users.FirstOrDefaultAsync(u => u.Id == pedido.UsuarioId);
+            cliente = usuario?.Email ?? usuario?.UserName ?? pedido.UsuarioId;
+        }
+    }
+
+    private async Task GuardarEstado()
+    {
+        await Db.SaveChangesAsync();
+    }
+}

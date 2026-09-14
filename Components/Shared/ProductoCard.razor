@@ -1,0 +1,36 @@
+@using VoltajeModa.Models
+
+<div class="card h-100">
+    <img src="@Producto.ImagenUrl" class="card-img-top" alt="@Producto.Nombre" />
+    <div class="card-body">
+        @if (Producto.EnOferta && Producto.PrecioOferta is not null)
+        {
+            <span class="badge bg-dark mb-1">Oferta</span>
+        }
+        <h5 class="card-title">@Producto.Nombre</h5>
+        @if (MostrarCategoria && Producto.Categoria is not null)
+        {
+            <p class="card-text">@Producto.Categoria.Nombre</p>
+        }
+        <p class="card-text">
+            @if (Producto.EnOferta && Producto.PrecioOferta is not null)
+            {
+                <span class="text-decoration-line-through text-muted me-2">@Producto.Precio.ToString("C")</span>
+                <strong>@Producto.PrecioEfectivo.ToString("C")</strong>
+            }
+            else
+            {
+                <strong>@Producto.Precio.ToString("C")</strong>
+            }
+        </p>
+        <a href="/productos/@Producto.Id" class="btn btn-dark">Ver detalle</a>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public Producto Producto { get; set; } = default!;
+
+    [Parameter]
+    public bool MostrarCategoria { get; set; } = true;
+}

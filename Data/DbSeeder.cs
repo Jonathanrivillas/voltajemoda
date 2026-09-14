@@ -52,6 +52,8 @@ public static class DbSeeder
                 Nombre = "Chaqueta Voltaje Urban",
                 Descripcion = "Chaqueta impermeable ligera, ideal para entretiempo.",
                 Precio = 120000,
+                EnOferta = true,
+                PrecioOferta = 95000,
                 ImagenUrl = "https://picsum.photos/seed/chaqueta-voltaje/500/500",
                 Categoria = chaquetas,
                 Variantes = new List<ProductoVariante>

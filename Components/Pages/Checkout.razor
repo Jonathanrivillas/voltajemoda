@@ -49,7 +49,7 @@ else
                     <td>@item.ProductoVariante!.Producto!.Nombre</td>
                     <td>@item.ProductoVariante.Talla / @item.ProductoVariante.Color</td>
                     <td>@item.Cantidad</td>
-                    <td>@((item.ProductoVariante.Producto.Precio * item.Cantidad).ToString("C"))</td>
+                    <td>@((item.ProductoVariante.Producto.PrecioEfectivo * item.Cantidad).ToString("C"))</td>
                 </tr>
             }
         </tbody>
@@ -92,7 +92,7 @@ else
         </div>
     }
 
-    <button class="btn btn-primary" @onclick="ConfirmarPedido" disabled="@procesando">
+    <button class="btn btn-dark" @onclick="ConfirmarPedido" disabled="@procesando">
         @(procesando ? "Procesando..." : "Confirmar pedido")
     </button>
 }
@@ -146,7 +146,7 @@ else
                 .ThenInclude(v => v!.Producto)
             .ToListAsync();
 
-        total = items.Sum(i => i.ProductoVariante!.Producto!.Precio * i.Cantidad);
+        total = items.Sum(i => i.ProductoVariante!.Producto!.PrecioEfectivo * i.Cantidad);
     }
 
     private async Task ConfirmarPedido()
@@ -213,7 +213,7 @@ else
             {
                 ProductoVarianteId = item.ProductoVarianteId,
                 Cantidad = item.Cantidad,
-                PrecioUnitario = item.ProductoVariante!.Producto!.Precio
+                PrecioUnitario = item.ProductoVariante!.Producto!.PrecioEfectivo
             });
 
             item.ProductoVariante.Stock -= item.Cantidad;

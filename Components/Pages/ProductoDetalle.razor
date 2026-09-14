@@ -27,7 +27,18 @@ else
         <div class="col-md-7">
             <h1>@producto.Nombre</h1>
             <p>@producto.Descripcion</p>
-            <p><strong>@producto.Precio.ToString("C")</strong></p>
+            <p>
+                @if (producto.EnOferta && producto.PrecioOferta is not null)
+                {
+                    <span class="badge bg-dark me-2">Oferta</span>
+                    <span class="text-decoration-line-through text-muted me-2">@producto.Precio.ToString("C")</span>
+                    <strong>@producto.PrecioEfectivo.ToString("C")</strong>
+                }
+                else
+                {
+                    <strong>@producto.Precio.ToString("C")</strong>
+                }
+            </p>
             <p>Categoría: @producto.Categoria?.Nombre</p>
 
             @if (mensaje is not null)
@@ -53,7 +64,7 @@ else
                     <input id="cantidad" type="number" class="form-control" style="width: 100px;" min="1" @bind="cantidad" />
                 </div>
                 <div class="col-auto">
-                    <button class="btn btn-primary" @onclick="AgregarAlCarrito" disabled="@(selectedVarianteId is null)">
+                    <button class="btn btn-dark" @onclick="AgregarAlCarrito" disabled="@(selectedVarianteId is null)">
                         Agregar al carrito
                     </button>
                 </div>

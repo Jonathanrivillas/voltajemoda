@@ -1,0 +1,4 @@
+# Cualquier Pull Request que modifique las migraciones de base de datos necesita
+# la aprobación del dueño del proyecto antes de poder mergearse.
+# Ver CONTRIBUTING.md -> "Migraciones de base de datos" para el flujo completo.
+/Data/Migrations/ @Jonathanrivillas

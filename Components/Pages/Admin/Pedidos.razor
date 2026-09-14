@@ -1,0 +1,81 @@
+@page "/admin/pedidos"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Pedidos</PageTitle>
+
+<h3>Pedidos</h3>
+
+@if (pedidos is null)
+{
+    <p>Cargando...</p>
+}
+else if (pedidos.Count == 0)
+{
+    <p>Todavía no hay pedidos.</p>
+}
+else
+{
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var pedido in pedidos)
+            {
+                <tr>
+                    <td>@pedido.Fecha.ToLocalTime().ToString("g")</td>
+                    <td>@(pedido.UsuarioId is not null ? usuarios.GetValueOrDefault(pedido.UsuarioId, "?") : "Invitado")</td>
+                    <td>@pedido.Total.ToString("C")</td>
+                    <td style="width: 180px;">
+                        <select class="form-select" @bind="pedido.Estado" @bind:after="() => GuardarEstado(pedido)">
+                            @foreach (var estado in Enum.GetValues<EstadoPedido>())
+                            {
+                                <option value="@estado">@estado</option>
+                            }
+                        </select>
+                    </td>
+                    <td><a href="/admin/pedidos/@pedido.Id">Ver detalle</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Pedido>? pedidos;
+    private Dictionary<string, string> usuarios = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        pedidos = await Db.Pedidos
+            .OrderByDescending(p => p.Fecha)
+            .ToListAsync();
+
+        var usuarioIds = pedidos
+            .Where(p => p.UsuarioId is not null)
+            .Select(p => p.UsuarioId!)
+            .Distinct()
+            .ToList();
+
+        usuarios = await Db.Users
+            .Where(u => usuarioIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.Email ?? u.UserName ?? u.Id);
+    }
+
+    private async Task GuardarEstado(Pedido pedido)
+    {
+        await Db.SaveChangesAsync();
+    }
+}

@@ -1,0 +1,204 @@
+@page "/admin/productos/nuevo"
+@page "/admin/productos/{Id:int}/editar"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject ApplicationDbContext Db
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(Id is null ? "Nuevo producto" : "Editar producto")</PageTitle>
+
+<h3>@(Id is null ? "Nuevo producto" : "Editar producto")</h3>
+
+@if (!cargado)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <EditForm Model="producto" OnValidSubmit="Guardar" class="mb-4">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <InputText class="form-control" @bind-Value="producto.Nombre" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <InputTextArea class="form-control" @bind-Value="producto.Descripcion" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Precio</label>
+            <InputNumber class="form-control" @bind-Value="producto.Precio" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">URL de imagen</label>
+            <InputText class="form-control" @bind-Value="producto.ImagenUrl" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Categoría</label>
+            <InputSelect class="form-select" @bind-Value="producto.CategoriaId">
+                @foreach (var categoria in categorias)
+                {
+                    <option value="@categoria.Id">@categoria.Nombre</option>
+                }
+            </InputSelect>
+        </div>
+
+        <div class="form-check mb-3">
+            <InputCheckbox class="form-check-input" id="enOferta" @bind-Value="producto.EnOferta" />
+            <label class="form-check-label" for="enOferta">En oferta</label>
+        </div>
+
+        @if (producto.EnOferta)
+        {
+            <div class="mb-3">
+                <label class="form-label">Precio de oferta</label>
+                <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" />
+            </div>
+        }
+
+        <button type="submit" class="btn btn-dark">Guardar</button>
+    </EditForm>
+
+    @if (Id is not null)
+    {
+        <hr />
+        <h5>Variantes</h5>
+
+        @if (varianteError is not null)
+        {
+            <div class="alert alert-danger">@varianteError</div>
+        }
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Talla</th>
+                    <th>Color</th>
+                    <th>Stock</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var variante in producto.Variantes)
+                {
+                    <tr>
+                        <td>@variante.Talla</td>
+                        <td>@variante.Color</td>
+                        <td>@variante.Stock</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarVariante(variante)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <EditForm Model="nuevaVariante" OnValidSubmit="AgregarVariante" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">Talla</label>
+                <InputText class="form-control" @bind-Value="nuevaVariante.Talla" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Color</label>
+                <InputText class="form-control" @bind-Value="nuevaVariante.Color" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Stock</label>
+                <InputNumber class="form-control" @bind-Value="nuevaVariante.Stock" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-secondary">Agregar variante</button>
+            </div>
+        </EditForm>
+    }
+}
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private bool cargado;
+    private Producto producto = new();
+    private List<Categoria> categorias = new();
+    private ProductoVariante nuevaVariante = new();
+    private string? varianteError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        categorias = await Db.Categorias.ToListAsync();
+
+        if (Id is not null)
+        {
+            var encontrado = await Db.Productos
+                .Include(p => p.Variantes)
+                .FirstOrDefaultAsync(p => p.Id == Id);
+
+            if (encontrado is not null)
+            {
+                producto = encontrado;
+            }
+        }
+        else if (categorias.Count > 0)
+        {
+            producto.CategoriaId = categorias[0].Id;
+        }
+
+        cargado = true;
+    }
+
+    private async Task Guardar()
+    {
+        if (Id is null)
+        {
+            Db.Productos.Add(producto);
+            await Db.SaveChangesAsync();
+            NavigationManager.NavigateTo($"/admin/productos/{producto.Id}/editar");
+        }
+        else
+        {
+            await Db.SaveChangesAsync();
+        }
+    }
+
+    private async Task AgregarVariante()
+    {
+        varianteError = null;
+
+        if (string.IsNullOrWhiteSpace(nuevaVariante.Talla) || string.IsNullOrWhiteSpace(nuevaVariante.Color))
+        {
+            varianteError = "Completa talla y color.";
+            return;
+        }
+
+        nuevaVariante.ProductoId = producto.Id;
+        Db.ProductoVariantes.Add(nuevaVariante);
+        await Db.SaveChangesAsync();
+
+        producto.Variantes.Add(nuevaVariante);
+        nuevaVariante = new();
+    }
+
+    private async Task EliminarVariante(ProductoVariante variante)
+    {
+        varianteError = null;
+
+        var enUso = await Db.PedidoItems.AnyAsync(pi => pi.ProductoVarianteId == variante.Id)
+            || await Db.CarritoItems.AnyAsync(ci => ci.ProductoVarianteId == variante.Id);
+
+        if (enUso)
+        {
+            varianteError = "No se puede eliminar esta variante: está en un carrito o pedido.";
+            return;
+        }
+
+        Db.ProductoVariantes.Remove(variante);
+        await Db.SaveChangesAsync();
+        producto.Variantes.Remove(variante);
+    }
+}

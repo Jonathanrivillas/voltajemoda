@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+@layout VoltajeModa.Components.Layout.MainLayout
+
+<h1>Panel de administración</h1>
+
+<div class="row">
+    <div class="col-lg-3">
+        <ul class="nav nav-pills flex-column">
+            <li class="nav-item">
+                <NavLink class="nav-link" href="admin/productos">Productos</NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link" href="admin/categorias">Categorías</NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link" href="admin/pedidos">Pedidos</NavLink>
+            </li>
+        </ul>
+    </div>
+    <div class="col-lg-9">
+        @Body
+    </div>
+</div>
