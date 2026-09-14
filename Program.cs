@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using VoltajeModa.Components;
 using VoltajeModa.Components.Account;
@@ -35,7 +36,12 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
     {
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
-        options.AuthorizationEndpoint += "?prompt=select_account";
+        options.Events.OnRedirectToAuthorizationEndpoint = context =>
+        {
+            var redirectUri = QueryHelpers.AddQueryString(context.RedirectUri, "prompt", "select_account");
+            context.Response.Redirect(redirectUri);
+            return Task.CompletedTask;
+        };
     });
 }
 
