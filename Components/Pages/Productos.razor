@@ -11,7 +11,7 @@
 
 @if (productos is null)
 {
-    <p>Cargando...</p>
+    <Cargando />
 }
 else
 {
@@ -27,7 +27,7 @@ else
 
     if (productosFiltrados.Count == 0)
     {
-        <p>No hay productos para mostrar.</p>
+        <EstadoVacio Mensaje="No hay productos para mostrar." />
     }
     else
     {

@@ -13,11 +13,11 @@
 
 @if (pedidos is null)
 {
-    <p>Cargando...</p>
+    <Cargando />
 }
 else if (pedidos.Count == 0)
 {
-    <p>Todavía no hay pedidos.</p>
+    <EstadoVacio Mensaje="Todavía no hay pedidos." />
 }
 else
 {

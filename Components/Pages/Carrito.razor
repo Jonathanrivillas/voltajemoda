@@ -18,11 +18,11 @@
 
 @if (!cargado)
 {
-    <p>Cargando...</p>
+    <Cargando />
 }
 else if (items is null || items.Count == 0)
 {
-    <p>Tu carrito está vacío. <a href="/productos">Ver catálogo</a></p>
+    <EstadoVacio Mensaje="Tu carrito está vacío." EnlaceTexto="Ver catálogo" EnlaceHref="/productos" />
 }
 else
 {

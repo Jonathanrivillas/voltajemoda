@@ -16,11 +16,11 @@
 
 @if (pedidos is null)
 {
-    <p>Cargando...</p>
+    <Cargando />
 }
 else if (pedidos.Count == 0)
 {
-    <p>Todavía no tienes pedidos. <a href="/productos">Ver catálogo</a></p>
+    <EstadoVacio Mensaje="Todavía no tienes pedidos." EnlaceTexto="Ver catálogo" EnlaceHref="/productos" />
 }
 else
 {
