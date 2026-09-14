@@ -1,0 +1,18 @@
+<p>
+    @Mensaje
+    @if (EnlaceHref is not null)
+    {
+        <a href="@EnlaceHref">@EnlaceTexto</a>
+    }
+</p>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Mensaje { get; set; } = default!;
+
+    [Parameter]
+    public string? EnlaceTexto { get; set; }
+
+    [Parameter]
+    public string? EnlaceHref { get; set; }
+}

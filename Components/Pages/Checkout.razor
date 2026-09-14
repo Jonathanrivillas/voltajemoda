@@ -13,17 +13,17 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 
-<PageTitle>Checkout</PageTitle>
+<PageTitle>Finalizar compra</PageTitle>
 
-<h1>Checkout</h1>
+<h1>Finalizar compra</h1>
 
 @if (!cargado)
 {
-    <p>Cargando...</p>
+    <Cargando />
 }
 else if (items is null || items.Count == 0)
 {
-    <p>Tu carrito está vacío. <a href="/productos">Ver catálogo</a></p>
+    <EstadoVacio Mensaje="Tu carrito está vacío." EnlaceTexto="Ver catálogo" EnlaceHref="/productos" />
 }
 else
 {
@@ -64,7 +64,7 @@ else
     {
         @if (direcciones.Count == 0)
         {
-            <p>No tienes direcciones guardadas. <a href="/Account/Manage/Direcciones">Agrega una dirección</a> antes de continuar.</p>
+            <EstadoVacio Mensaje="No tienes direcciones guardadas." EnlaceTexto="Agrega una dirección antes de continuar" EnlaceHref="/Account/Manage/Direcciones" />
         }
         else
         {

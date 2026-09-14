@@ -7,7 +7,7 @@ Ecommerce de ropa construido en **Blazor Web App** (.NET 10), full-stack en C#: 
 Funcionalidades ya implementadas y operativas de punta a punta:
 
 - **Catálogo**: productos con variantes (talla/color) y stock por variante, categorías, filtro por categoría, productos en oferta (precio original + precio de oferta).
-- **Cuentas**: registro/login (ASP.NET Core Identity), roles `Cliente` y `Administrador`, perfil editable, gestión de direcciones de envío.
+- **Cuentas**: registro/login (ASP.NET Core Identity), roles `Cliente` y `Administrador`, perfil editable, gestión de direcciones de envío. Registro con nombre, teléfono, correo, contraseña y dirección de envío en un solo paso, más aceptación de términos y condiciones. Login también disponible con **Google** (vincula automáticamente si ya existe una cuenta local con el mismo correo). Interfaz de login/registro con diseño propio (`auth-page`/`auth-card` en `wwwroot/app.css`).
 - **Carrito**: funciona con o sin cuenta (invitado). El carrito de un invitado se fusiona automáticamente con su cuenta al iniciar sesión.
 - **Checkout**: con o sin cuenta, valida stock disponible, descuenta stock al confirmar, respeta el precio de oferta vigente.
 - **Historial de pedidos** del cliente, y **detalle de pedido** (accesible tanto por el dueño registrado como por el invitado que lo generó).
@@ -25,8 +25,9 @@ Funcionalidades ya implementadas y operativas de punta a punta:
 ## Stack
 
 - **.NET 10** (Blazor Web App, interactividad Server)
-- **Entity Framework Core 10** + **SQL Server Express**
-- **ASP.NET Core Identity** (registro/login, roles `Cliente` / `Administrador`)
+- **Entity Framework Core 10** + **SQL Server Express** en desarrollo / **Azure SQL Database** en producción
+- **ASP.NET Core Identity** (registro/login, roles `Cliente` / `Administrador`), con login externo por **Google OAuth**
+- **Azure Communication Services** para el envío real de emails (confirmación de cuenta, reseteo de contraseña) en producción
 - **Bootstrap** (incluido por la plantilla)
 
 ## Requisitos previos
@@ -115,11 +116,17 @@ Y se usa así en cualquier página (no necesita `@using` adicional — `Componen
 <ProductoCard Producto="producto" MostrarCategoria="false" />
 ```
 
-Cuando veas HTML repetido entre dos o más páginas, es buena señal de que debería ser un componente en `Components/Shared/`.
+Cuando veas HTML repetido entre dos o más páginas, es buena señal de que debería ser un componente en `Components/Shared/`. Componentes ya disponibles para reutilizar (en vez de repetir el HTML a mano):
+
+- **`<Cargando />`** — reemplaza cualquier `<p>Cargando...</p>` mientras una página espera datos async.
+- **`<EstadoVacio Mensaje="..." EnlaceTexto="..." EnlaceHref="..." />`** — reemplaza los mensajes de "no hay nada que mostrar" (carrito vacío, sin pedidos, sin productos, etc.). `EnlaceTexto`/`EnlaceHref` son opcionales, solo agrégalos si el mensaje debe incluir un link de acción.
+- **`<ProductoCard />`** — tarjeta de producto (catálogo/inicio).
+
+Antes de escribir un nuevo bloque de "cargando" o "no hay resultados", usa estos componentes en vez de duplicar el markup.
 
 ## Convenciones a tener en cuenta
 
-- **Nombres en español** para todo lo del dominio del ecommerce (clases, propiedades, rutas) — el código de infraestructura/Identity que viene de la plantilla de Microsoft se dejó en inglés tal como se genera.
+- **Todo el texto visible al usuario debe estar en español** — títulos de página, botones, labels, placeholders, mensajes de error/éxito, todo. No mezclar inglés y español en una misma vista. Esto aplica también a las páginas de `Components/Account/` (login, registro, gestión de cuenta): aunque nacieron del scaffolding de Identity en inglés, ya están traducidas — si tocas alguna, mantenla en español. La única excepción es **nombres en código** (clases, propiedades, métodos, rutas de C#) — ahí sí se sigue la convención de nombres en español para el dominio del ecommerce, pero el código de infraestructura/Identity que viene de la plantilla de Microsoft se dejó en inglés tal como se genera (nombres de propiedades de `ApplicationUser`, servicios de Identity, etc.).
 - **Modos de renderizado de Blazor:** las páginas son estáticas (SSR) por defecto. Si tu página necesita reaccionar a eventos (`@onclick`, `@bind` con cambios en vivo), agrégale `@rendermode InteractiveServer` explícitamente — si no, los eventos simplemente no van a disparar nada.
 - **Carrito y checkout funcionan sin cuenta** (invitados): el visitante anónimo se identifica con un id guardado vía `ProtectedLocalStorage` en su navegador (`Services/CarritoService.cs`). Por eso `Carrito`, `Direccion` y `Pedido` tienen `UsuarioId` **y** `AnonimoId`, ambos opcionales — un registro pertenece a uno u otro. Al iniciar sesión, todo lo anónimo se reasigna automáticamente a la cuenta.
 - **`ProtectedLocalStorage` necesita JS interop**, que no está disponible durante el prerenderizado — por eso las páginas que lo usan (`Carrito.razor`, `Checkout.razor`) cargan sus datos en `OnAfterRenderAsync(firstRender)`, no en `OnInitializedAsync`.
@@ -127,6 +134,14 @@ Cuando veas HTML repetido entre dos o más páginas, es buena señal de que debe
 - **Precio de un producto:** usa siempre `producto.PrecioEfectivo` (no `producto.Precio` directamente) para cualquier cálculo de dinero real (carrito, checkout, totales) — respeta automáticamente si el producto está en oferta. `Precio` es el precio de lista, útil solo para mostrarlo tachado.
 - **Colores:** paleta blanco/negro aplicada globalmente en `wwwroot/app.css` (sobreescribe `.btn-primary`, `.text-primary`, `.bg-primary` de Bootstrap). Usa clases `btn-dark` / `btn-outline-dark` en vistas nuevas en vez de `btn-primary`, para consistencia visual.
 - Después de cambiar cualquier clase en `Models/`, hace falta una migración — pero **no la generes tú mismo**, ver [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Autenticación
+
+- **Registro por correo**: pide nombre completo, correo, teléfono, contraseña y una dirección de envío en el mismo formulario, además de aceptar los [Términos y Condiciones](./Components/Pages/Terminos.razor) (placeholder, ver backlog). Requiere confirmar el correo antes de poder iniciar sesión (`RequireConfirmedAccount = true`).
+- **Login con Google**: opcional — solo aparece si están configuradas las credenciales (`Authentication:Google:ClientId` / `Authentication:Google:ClientSecret`, vía `dotnet user-secrets` en local o variables de entorno `Authentication__Google__ClientId` / `Authentication__Google__ClientSecret` en Azure App Service). Si el correo de la cuenta de Google ya tiene una cuenta local registrada por contraseña, se **vincula automáticamente** a esa cuenta en vez de fallar por correo duplicado (`Components/Account/Pages/ExternalLogin.razor`). Fuerza el selector de cuenta de Google en cada intento (`prompt=select_account` en `Program.cs`).
+- **Política de contraseña**: mínimo 10 caracteres, con mayúscula, minúscula, número y símbolo. Bloqueo de cuenta tras 5 intentos fallidos por 10 minutos.
+- **Rate limiting**: máximo 10 solicitudes por minuto por IP en cualquier ruta `/Account/*`, para mitigar fuerza bruta/credential stuffing.
+- **Passkeys**: el código de gestión sigue en `Cuenta > Seguridad`, pero **no** hay entrada de login por passkey en `/Account/Login` (se quitó por UX — Google la reemplaza).
 
 ## Despliegue
 

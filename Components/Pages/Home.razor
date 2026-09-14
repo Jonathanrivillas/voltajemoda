@@ -33,11 +33,11 @@
 
 @if (categorias is null)
 {
-    <p>Cargando...</p>
+    <Cargando />
 }
 else if (categorias.Count == 0)
 {
-    <p>Todavía no hay categorías cargadas.</p>
+    <EstadoVacio Mensaje="Todavía no hay categorías cargadas." />
 }
 else
 {
