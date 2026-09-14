@@ -135,10 +135,27 @@
             return;
         }
 
-        // If the user does not have an account, then ask the user to create an account.
         if (externalLoginInfo.Principal.HasClaim(c => c.Type == ClaimTypes.Email))
         {
             Input.Email = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Email) ?? "";
+
+            // Si ya existe una cuenta local con este correo (registrada con contraseña, por
+            // ejemplo), vinculamos el login de Google a esa cuenta en vez de intentar crear
+            // una nueva con el mismo correo, que fallaría por nombre de usuario duplicado.
+            var existingUser = await UserManager.FindByEmailAsync(Input.Email);
+            if (existingUser is not null)
+            {
+                var linkResult = await UserManager.AddLoginAsync(existingUser, externalLoginInfo);
+                if (linkResult.Succeeded)
+                {
+                    Logger.LogInformation(
+                        "Existing user linked and signed in with {LoginProvider} provider.",
+                        externalLoginInfo.LoginProvider);
+                    await SignInManager.SignInAsync(existingUser, isPersistent: false, externalLoginInfo.LoginProvider);
+                    RedirectManager.RedirectTo(ReturnUrl);
+                    return;
+                }
+            }
         }
 
         Input.Nombre = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Name) ?? "";
