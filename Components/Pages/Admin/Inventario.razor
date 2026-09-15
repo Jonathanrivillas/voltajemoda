@@ -1,0 +1,228 @@
+@page "/admin/inventario"
+@rendermode InteractiveServer
+
+@using System.Security.Claims
+
+@inject InventarioService InventarioService
+@inject ApplicationDbContext Db
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+
+<PageTitle>Inventario</PageTitle>
+
+<div class="admin-page-header">
+    <div>
+        <h1>Inventario</h1>
+        <p>Controla el stock por variante y registra ajustes.</p>
+    </div>
+    <a href="/admin/inventario/historial" class="btn btn-outline-dark"><i class="bi bi-clock-history"></i> Ver historial</a>
+</div>
+
+@if (mensajeExito is not null)
+{
+    <div class="alert alert-success">@mensajeExito</div>
+}
+
+@if (variantes is null)
+{
+    <Cargando />
+}
+else
+{
+    <AdminCard>
+        <Toolbar>
+            <div class="admin-filter-bar">
+                <input class="form-control form-control-sm" style="min-width:200px" placeholder="Buscar producto..." @bind="busqueda" @bind:event="oninput" @bind:after="AplicarFiltrosAsync" />
+                <select class="form-select form-select-sm" @bind="categoriaId" @bind:after="AplicarFiltrosAsync">
+                    <option value="0">Todas las categorías</option>
+                    @foreach (var categoria in categorias)
+                    {
+                        <option value="@categoria.Id">@categoria.Nombre</option>
+                    }
+                </select>
+                <select class="form-select form-select-sm" @bind="estadoFiltro" @bind:after="AplicarFiltrosAsync">
+                    <option value="Todos">Todos los estados</option>
+                    <option value="EnStock">En stock</option>
+                    <option value="StockBajo">Stock bajo</option>
+                    <option value="SinStock">Sin stock</option>
+                </select>
+            </div>
+        </Toolbar>
+        <ChildContent>
+        @if (variantes.Count == 0)
+        {
+            <EstadoVacio Mensaje="Ninguna variante coincide con los filtros." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Producto</th>
+                            <th>Talla</th>
+                            <th>Color</th>
+                            <th>Categoría</th>
+                            <th>Stock</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var variante in variantes)
+                        {
+                            <tr>
+                                <td><img src="@variante.ImagenUrl" alt="@variante.ProductoNombre" class="admin-table-thumb" /></td>
+                                <td>@variante.ProductoNombre</td>
+                                <td>@variante.Talla</td>
+                                <td>@variante.Color</td>
+                                <td>@variante.CategoriaNombre</td>
+                                <td><StockBadge Stock="variante.Stock" /></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalAjusteStock" @onclick="() => AbrirAjuste(variante)">
+                                        Ajustar stock
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        </ChildContent>
+    </AdminCard>
+}
+
+<div class="modal fade" id="modalAjusteStock" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <EditForm Model="this" OnValidSubmit="ConfirmarAjuste">
+                <div class="modal-header">
+                    <h5 class="modal-title">Ajustar stock — @varianteAjuste?.ProductoNombre</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    @if (errorModal is not null)
+                    {
+                        <div class="alert alert-danger">@errorModal</div>
+                    }
+                    <p class="text-muted small mb-3">@varianteAjuste?.Talla / @varianteAjuste?.Color — stock actual: @varianteAjuste?.Stock</p>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de movimiento</label>
+                        <InputSelect class="form-select" @bind-Value="tipoAjuste">
+                            <option value="@TipoMovimientoStock.Entrada">Entrada</option>
+                            <option value="@TipoMovimientoStock.Salida">Salida</option>
+                        </InputSelect>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad</label>
+                        <InputNumber class="form-control" @bind-Value="cantidadAjuste" min="1" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo</label>
+                        <InputSelect class="form-select" @bind-Value="motivoSeleccionado">
+                            <option value="Ajuste manual">Ajuste manual</option>
+                            <option value="Reposición">Reposición</option>
+                            <option value="Corrección de inventario">Corrección de inventario</option>
+                            <option value="Otro">Otro</option>
+                        </InputSelect>
+                    </div>
+                    @if (motivoSeleccionado == "Otro")
+                    {
+                        <div class="mb-0">
+                            <label class="form-label">Detalle del motivo</label>
+                            <InputText class="form-control" @bind-Value="motivoLibre" />
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-dark" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-dark">Confirmar</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<VarianteInventarioDto>? variantes;
+    private List<Categoria> categorias = new();
+    private string? currentUserId;
+
+    private string busqueda = "";
+    private int categoriaId;
+    private EstadoStockFiltro estadoFiltro = EstadoStockFiltro.Todos;
+
+    private VarianteInventarioDto? varianteAjuste;
+    private TipoMovimientoStock tipoAjuste = TipoMovimientoStock.Entrada;
+    private int cantidadAjuste = 1;
+    private string motivoSeleccionado = "Ajuste manual";
+    private string motivoLibre = "";
+    private string? errorModal;
+    private string? mensajeExito;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        categorias = await Db.Categorias.OrderBy(c => c.Nombre).ToListAsync();
+        await AplicarFiltrosAsync();
+    }
+
+    private async Task AplicarFiltrosAsync()
+    {
+        variantes = await InventarioService.ObtenerVariantesAsync(
+            categoriaId > 0 ? categoriaId : null,
+            busqueda,
+            estadoFiltro);
+    }
+
+    private void AbrirAjuste(VarianteInventarioDto variante)
+    {
+        varianteAjuste = variante;
+        tipoAjuste = TipoMovimientoStock.Entrada;
+        cantidadAjuste = 1;
+        motivoSeleccionado = "Ajuste manual";
+        motivoLibre = "";
+        errorModal = null;
+        mensajeExito = null;
+    }
+
+    private async Task ConfirmarAjuste()
+    {
+        if (varianteAjuste is null) return;
+        errorModal = null;
+
+        var motivo = motivoSeleccionado == "Otro" && !string.IsNullOrWhiteSpace(motivoLibre)
+            ? motivoLibre
+            : motivoSeleccionado;
+
+        var resultado = await InventarioService.RegistrarMovimientoAsync(
+            varianteAjuste.ProductoVarianteId, tipoAjuste, cantidadAjuste, motivo, currentUserId);
+
+        if (!resultado.Exito)
+        {
+            errorModal = resultado.Error;
+            return;
+        }
+
+        mensajeExito = $"Stock actualizado para {varianteAjuste.ProductoNombre} ({varianteAjuste.Talla} / {varianteAjuste.Color}).";
+
+        // El ajuste de stock ya se guardó — si falla el cierre automático del modal no debe
+        // ocultar ese éxito ni tumbar el circuito; el usuario puede cerrarlo a mano.
+        try
+        {
+            await JS.InvokeVoidAsync("adminUi.cerrarModal", "modalAjusteStock");
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        await AplicarFiltrosAsync();
+    }
+}

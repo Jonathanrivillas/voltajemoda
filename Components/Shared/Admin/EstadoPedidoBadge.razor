@@ -1,0 +1,8 @@
+@using VoltajeModa.Models
+
+<span class="admin-badge admin-badge--@Estado.ToString().ToLowerInvariant()">@Estado</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public EstadoPedido Estado { get; set; }
+}

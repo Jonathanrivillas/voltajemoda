@@ -30,7 +30,7 @@ Luego abres una **Pull Request hacia `desarrollo`** (no hacia `main`) en GitHub,
 
 **Las migraciones (`dotnet ef migrations add` / `dotnet ef database update`) las genera y aplica únicamente el dueño del proyecto.** No porque el resto del equipo no sepa hacerlo, sino porque varias personas generando migraciones en paralelo sobre el mismo modelo en evolución termina en conflictos y una base de datos con historial inconsistente entre máquinas.
 
-**Mecanismo que lo hace cumplir (no solo una convención):** la carpeta `Data/Migrations/` está protegida por `.github/CODEOWNERS`, apuntando al dueño del proyecto. Con la regla de protección de rama activada en GitHub (ver abajo), **ningún PR que toque esa carpeta se puede mergear sin su aprobación explícita** — es un control real, no solo una nota en este documento.
+**Mecanismo que lo hace cumplir (no solo una convención):** la carpeta `Migrations/` está protegida por `.github/CODEOWNERS`, apuntando al dueño del proyecto. Con la regla de protección de rama activada en GitHub (ver abajo), **ningún PR que toque esa carpeta se puede mergear sin su aprobación explícita** — es un control real, no solo una nota en este documento.
 
 **Cómo trabajar si tu tarea necesita cambiar el modelo de datos:**
 

@@ -1,0 +1,157 @@
+@page "/admin/inventario/historial"
+@rendermode InteractiveServer
+
+@inject InventarioService InventarioService
+@inject ApplicationDbContext Db
+
+<PageTitle>Historial de inventario</PageTitle>
+
+<div class="admin-page-header">
+    <div>
+        <h1>Historial de movimientos de stock</h1>
+        <p>Entradas, salidas y ajustes registrados por variante.</p>
+    </div>
+    <a href="/admin/inventario" class="btn btn-outline-dark"><i class="bi bi-arrow-left"></i> Volver a Inventario</a>
+</div>
+
+<AdminCard>
+    <Toolbar>
+        <div class="admin-filter-bar">
+            <select class="form-select form-select-sm" @bind="varianteId" @bind:after="AplicarFiltrosAsync">
+                <option value="0">Todas las variantes</option>
+                @foreach (var variante in variantesDisponibles)
+                {
+                    <option value="@variante.Id">@variante.Producto?.Nombre — @variante.Talla / @variante.Color</option>
+                }
+            </select>
+            <select class="form-select form-select-sm" @bind="tipoFiltro" @bind:after="AplicarFiltrosAsync">
+                <option value="">Todos los tipos</option>
+                <option value="@TipoMovimientoStock.Entrada">Entrada</option>
+                <option value="@TipoMovimientoStock.Salida">Salida</option>
+            </select>
+            <input type="date" class="form-control form-control-sm" @bind="desde" @bind:after="AplicarFiltrosAsync" />
+            <span class="text-muted small">hasta</span>
+            <input type="date" class="form-control form-control-sm" @bind="hasta" @bind:after="AplicarFiltrosAsync" />
+        </div>
+    </Toolbar>
+    <ChildContent>
+    @if (movimientos is null)
+    {
+        <Cargando />
+    }
+    else if (movimientos.Count == 0)
+    {
+        <EstadoVacio Mensaje="No hay movimientos que coincidan con los filtros." />
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Producto</th>
+                        <th>Tipo</th>
+                        <th>Cantidad</th>
+                        <th>Motivo</th>
+                        <th>Usuario</th>
+                        <th>Stock resultante</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var movimiento in movimientos)
+                    {
+                        <tr>
+                            <td>@movimiento.Fecha.ToLocalTime().ToString("g")</td>
+                            <td>@movimiento.ProductoVariante?.Producto?.Nombre (@movimiento.ProductoVariante?.Talla / @movimiento.ProductoVariante?.Color)</td>
+                            <td><span class="admin-badge admin-badge--@movimiento.Tipo.ToString().ToLowerInvariant()">@movimiento.Tipo</span></td>
+                            <td>@(movimiento.Tipo == TipoMovimientoStock.Entrada ? "+" : "-")@movimiento.Cantidad</td>
+                            <td>@movimiento.Motivo</td>
+                            <td>@(movimiento.UsuarioId is not null ? usuarios.GetValueOrDefault(movimiento.UsuarioId, "?") : "—")</td>
+                            <td>@movimiento.StockResultante</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="text-muted small">Página @pagina de @TotalPaginas (@totalRegistros movimientos)</span>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-dark" disabled="@(pagina <= 1)" @onclick="PaginaAnterior">Anterior</button>
+                <button class="btn btn-sm btn-outline-dark" disabled="@(pagina >= TotalPaginas)" @onclick="PaginaSiguiente">Siguiente</button>
+            </div>
+        </div>
+    }
+    </ChildContent>
+</AdminCard>
+
+@code {
+    private const int TamanoPagina = 25;
+
+    private List<MovimientoStock>? movimientos;
+    private List<ProductoVariante> variantesDisponibles = new();
+    private Dictionary<string, string> usuarios = new();
+
+    private int varianteId;
+    private string tipoFiltro = "";
+    private DateTime? desde;
+    private DateTime? hasta;
+    private int pagina = 1;
+    private int totalRegistros;
+
+    private int TotalPaginas => Math.Max(1, (int)Math.Ceiling(totalRegistros / (double)TamanoPagina));
+
+    protected override async Task OnInitializedAsync()
+    {
+        variantesDisponibles = await Db.ProductoVariantes
+            .Include(v => v.Producto)
+            .OrderBy(v => v.Producto!.Nombre)
+            .ToListAsync();
+
+        await AplicarFiltrosAsync();
+    }
+
+    private async Task AplicarFiltrosAsync()
+    {
+        pagina = 1;
+        await CargarPaginaAsync();
+    }
+
+    private async Task CargarPaginaAsync()
+    {
+        TipoMovimientoStock? tipo = string.IsNullOrEmpty(tipoFiltro) ? null : Enum.Parse<TipoMovimientoStock>(tipoFiltro);
+
+        var (items, total) = await InventarioService.ObtenerHistorialAsync(
+            varianteId > 0 ? varianteId : null,
+            desde,
+            hasta?.AddDays(1).AddTicks(-1),
+            tipo,
+            pagina,
+            TamanoPagina);
+
+        movimientos = items;
+        totalRegistros = total;
+
+        var usuarioIds = items.Where(m => m.UsuarioId is not null).Select(m => m.UsuarioId!).Distinct().ToList();
+        var nuevos = await Db.Users.Where(u => usuarioIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Email ?? u.UserName ?? u.Id);
+        foreach (var kv in nuevos)
+        {
+            usuarios[kv.Key] = kv.Value;
+        }
+    }
+
+    private async Task PaginaAnterior()
+    {
+        if (pagina <= 1) return;
+        pagina--;
+        await CargarPaginaAsync();
+    }
+
+    private async Task PaginaSiguiente()
+    {
+        if (pagina >= TotalPaginas) return;
+        pagina++;
+        await CargarPaginaAsync();
+    }
+}

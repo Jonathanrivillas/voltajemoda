@@ -1,0 +1,240 @@
+@page "/admin/estadisticas"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+@inject EstadisticasService EstadisticasService
+@inject IJSRuntime JS
+
+<PageTitle>Estadísticas</PageTitle>
+
+<div class="admin-page-header">
+    <div>
+        <h1>Estadísticas</h1>
+        <p>Rendimiento de ventas por rango de fechas.</p>
+    </div>
+</div>
+
+<AdminCard>
+    <div class="admin-filter-bar">
+        <button class="btn btn-sm btn-outline-dark" @onclick='() => AplicarPreset(7)'>Últimos 7 días</button>
+        <button class="btn btn-sm btn-outline-dark" @onclick='() => AplicarPreset(30)'>Últimos 30 días</button>
+        <button class="btn btn-sm btn-outline-dark" @onclick="AplicarEsteMes">Este mes</button>
+        <button class="btn btn-sm btn-outline-dark" @onclick="AplicarEsteAnio">Este año</button>
+        <span class="text-muted small ms-2">|</span>
+        <input type="date" class="form-control form-control-sm" @bind="desde" @bind:after="RecargarAsync" />
+        <span class="text-muted small">hasta</span>
+        <input type="date" class="form-control form-control-sm" @bind="hasta" @bind:after="RecargarAsync" />
+    </div>
+</AdminCard>
+
+@if (cargando)
+{
+    <Cargando />
+}
+else
+{
+    <div class="admin-grid-2">
+        <div>
+            <AdminCard Titulo="Ventas en el período">
+                <div class="admin-chart-container">
+                    <canvas id="@ventasChartId"></canvas>
+                </div>
+            </AdminCard>
+
+            <AdminCard Titulo="Top 10 productos más vendidos">
+                <div class="admin-chart-container">
+                    <canvas id="@topChartId"></canvas>
+                </div>
+            </AdminCard>
+
+            <AdminCard Titulo="Productos menos vendidos">
+                @if (menosVendidos is null || menosVendidos.Count == 0)
+                {
+                    <EstadoVacio Mensaje="Sin datos para el período seleccionado." />
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr><th>Producto</th><th>Unidades</th><th>Ingresos</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in menosVendidos)
+                                {
+                                    <tr>
+                                        <td>@p.Nombre</td>
+                                        <td>@p.UnidadesVendidas</td>
+                                        <td>@p.IngresosGenerados.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </AdminCard>
+        </div>
+
+        <div>
+            <AdminCard Titulo="Distribución de estados de pedido">
+                <div class="admin-chart-container admin-chart-container--sm">
+                    <canvas id="@distribucionChartId"></canvas>
+                </div>
+            </AdminCard>
+
+            <AdminCard Titulo="Rendimiento por categoría">
+                @if (rendimientoCategorias is null || rendimientoCategorias.Count == 0)
+                {
+                    <EstadoVacio Mensaje="Sin datos para el período seleccionado." />
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr><th>Categoría</th><th>Unidades</th><th>Ingresos</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in rendimientoCategorias)
+                                {
+                                    <tr>
+                                        <td>@c.Nombre</td>
+                                        <td>@c.UnidadesVendidas</td>
+                                        <td>@c.Ingresos.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </AdminCard>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly string ventasChartId = $"estVentas-{Guid.NewGuid():N}";
+    private readonly string topChartId = $"estTop-{Guid.NewGuid():N}";
+    private readonly string distribucionChartId = $"estDistribucion-{Guid.NewGuid():N}";
+
+    private DateOnly desde = DateOnly.FromDateTime(DateTime.Today.AddDays(-29));
+    private DateOnly hasta = DateOnly.FromDateTime(DateTime.Today);
+    private bool cargando = true;
+    private bool listoParaGraficar;
+    private bool graficosInicialesRenderizados;
+
+    private List<PuntoVentaDiariaDto>? ventas;
+    private List<ProductoMasVendidoDto>? masVendidos;
+    private List<ProductoMasVendidoDto>? menosVendidos;
+    private List<RendimientoCategoriaDto>? rendimientoCategorias;
+    private Dictionary<EstadoPedido, int>? distribucionEstados;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosAsync();
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        cargando = true;
+        ventas = await EstadisticasService.ObtenerVentasPorRangoAsync(desde, hasta);
+        masVendidos = await EstadisticasService.ObtenerProductosMasVendidosAsync(desde, hasta);
+        menosVendidos = await EstadisticasService.ObtenerProductosMenosVendidosAsync(desde, hasta);
+        rendimientoCategorias = await EstadisticasService.ObtenerRendimientoPorCategoriaAsync(desde, hasta);
+        distribucionEstados = await EstadisticasService.ObtenerDistribucionEstadosAsync(desde, hasta);
+        cargando = false;
+        listoParaGraficar = true;
+    }
+
+    private async Task RecargarAsync()
+    {
+        await CargarDatosAsync();
+        await RenderizarGraficosAsync();
+    }
+
+    private void AplicarPreset(int dias)
+    {
+        hasta = DateOnly.FromDateTime(DateTime.Today);
+        desde = hasta.AddDays(-(dias - 1));
+        _ = RecargarAsync();
+    }
+
+    private void AplicarEsteMes()
+    {
+        var hoy = DateTime.Today;
+        desde = new DateOnly(hoy.Year, hoy.Month, 1);
+        hasta = DateOnly.FromDateTime(hoy);
+        _ = RecargarAsync();
+    }
+
+    private void AplicarEsteAnio()
+    {
+        var hoy = DateTime.Today;
+        desde = new DateOnly(hoy.Year, 1, 1);
+        hasta = DateOnly.FromDateTime(hoy);
+        _ = RecargarAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!graficosInicialesRenderizados && listoParaGraficar)
+        {
+            graficosInicialesRenderizados = true;
+            await RenderizarGraficosAsync();
+        }
+    }
+
+    private async Task RenderizarGraficosAsync()
+    {
+        // Los gráficos son decorativos: si alguna llamada JS falla (script todavía cargando,
+        // circuito reconectando, etc.) no debe tumbar el circuito completo.
+        try
+        {
+            if (ventas is not null)
+            {
+                var etiquetas = ventas.Select(v => v.Fecha.ToString("dd/MM")).ToArray();
+                var datos = ventas.Select(v => v.Total).ToArray();
+                await JS.InvokeVoidAsync("adminCharts.renderLineChart", ventasChartId, etiquetas, datos, "Ventas");
+            }
+
+            if (masVendidos is not null)
+            {
+                var etiquetas = masVendidos.Select(p => p.Nombre).ToArray();
+                var datos = masVendidos.Select(p => p.UnidadesVendidas).ToArray();
+                await JS.InvokeVoidAsync("adminCharts.renderBarChart", topChartId, etiquetas, datos, "Unidades vendidas");
+            }
+
+            if (distribucionEstados is not null)
+            {
+                var etiquetas = distribucionEstados.Keys.Select(e => e.ToString()).ToArray();
+                var datos = distribucionEstados.Values.ToArray();
+                var colores = new[] { "#8a6d00", "#1d4ed8", "#1a9e5c", "#c72c2c" };
+                await JS.InvokeVoidAsync("adminCharts.renderDonutChart", distribucionChartId, etiquetas, datos, colores);
+            }
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("adminCharts.destroyChart", ventasChartId);
+            await JS.InvokeVoidAsync("adminCharts.destroyChart", topChartId);
+            await JS.InvokeVoidAsync("adminCharts.destroyChart", distribucionChartId);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // El componente se descartó sin haberse renderizado de forma interactiva
+            // (por ejemplo, solo se prerenderizó) — no hay nada que limpiar.
+        }
+    }
+}

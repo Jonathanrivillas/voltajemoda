@@ -1,0 +1,25 @@
+@using VoltajeModa.Services
+
+<span class="admin-badge @ClaseEstado">@Etiqueta (@Stock)</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public int Stock { get; set; }
+
+    [Parameter]
+    public int UmbralBajo { get; set; } = InventarioService.UmbralStockBajo;
+
+    private string ClaseEstado => Stock switch
+    {
+        0 => "admin-badge--sinstock",
+        _ when Stock <= UmbralBajo => "admin-badge--stockbajo",
+        _ => "admin-badge--enstock"
+    };
+
+    private string Etiqueta => Stock switch
+    {
+        0 => "Sin stock",
+        _ when Stock <= UmbralBajo => "Stock bajo",
+        _ => "En stock"
+    };
+}

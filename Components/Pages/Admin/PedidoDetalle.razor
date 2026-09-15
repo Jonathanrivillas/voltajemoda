@@ -1,61 +1,99 @@
 @page "/admin/pedidos/{Id:int}"
 @rendermode InteractiveServer
 
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
-
 @inject ApplicationDbContext Db
+@inject NavigationManager NavigationManager
 
 <PageTitle>Pedido #@Id</PageTitle>
 
+<div class="admin-page-header">
+    <div>
+        <h1>Pedido #@Id</h1>
+    </div>
+    <div class="d-flex gap-2">
+        @if (pedido is not null && pedido.Estado == EstadoPedido.Cancelado)
+        {
+            <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarPedido">
+                <i class="bi bi-trash"></i> Eliminar pedido
+            </button>
+        }
+        <a href="/admin/pedidos" class="btn btn-outline-dark"><i class="bi bi-arrow-left"></i> Volver</a>
+    </div>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
 @if (pedido is null)
 {
-    <p>Pedido no encontrado.</p>
+    <EstadoVacio Mensaje="Pedido no encontrado." />
 }
 else
 {
-    <h3>Pedido #@pedido.Id</h3>
-    <p>Fecha: @pedido.Fecha.ToLocalTime().ToString("g")</p>
-    <p>Cliente: @cliente</p>
-    <p>Enviar a: @pedido.Direccion?.Calle, @pedido.Direccion?.Ciudad, @pedido.Direccion?.CodigoPostal</p>
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <AdminCard Titulo="Artículos">
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Talla / Color</th>
+                                <th>Cantidad</th>
+                                <th>Precio unitario</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in pedido.Items)
+                            {
+                                <tr>
+                                    <td>@item.ProductoVariante?.Producto?.Nombre</td>
+                                    <td>@item.ProductoVariante?.Talla / @item.ProductoVariante?.Color</td>
+                                    <td>@item.Cantidad</td>
+                                    <td>@item.PrecioUnitario.ToString("C")</td>
+                                    <td>@((item.PrecioUnitario * item.Cantidad).ToString("C"))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <h4 class="text-end mt-3 mb-0">Total: @pedido.Total.ToString("C")</h4>
+            </AdminCard>
+        </div>
 
-    <div class="mb-3" style="max-width: 250px;">
-        <label class="form-label">Estado</label>
-        <select class="form-select" @bind="pedido.Estado" @bind:after="GuardarEstado">
-            @foreach (var estado in Enum.GetValues<EstadoPedido>())
-            {
-                <option value="@estado">@estado</option>
-            }
-        </select>
+        <div class="col-lg-4">
+            <AdminCard Titulo="Información del pedido">
+                <p class="mb-2"><EstadoPedidoBadge Estado="pedido.Estado" /></p>
+                <p class="mb-1 text-muted small">Fecha</p>
+                <p class="mb-3">@pedido.Fecha.ToLocalTime().ToString("g")</p>
+                <p class="mb-1 text-muted small">Cliente</p>
+                <p class="mb-3">@cliente</p>
+
+                <label class="form-label">Cambiar estado</label>
+                <select class="form-select" @bind="pedido.Estado" @bind:after="GuardarEstado">
+                    @foreach (var estado in Enum.GetValues<EstadoPedido>())
+                    {
+                        <option value="@estado">@estado</option>
+                    }
+                </select>
+            </AdminCard>
+
+            <AdminCard Titulo="Dirección de envío">
+                <p class="mb-0">
+                    @pedido.Direccion?.Calle<br />
+                    @pedido.Direccion?.Ciudad, @pedido.Direccion?.CodigoPostal
+                </p>
+            </AdminCard>
+        </div>
     </div>
-
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Talla / Color</th>
-                <th>Cantidad</th>
-                <th>Precio unitario</th>
-                <th>Subtotal</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var item in pedido.Items)
-            {
-                <tr>
-                    <td>@item.ProductoVariante?.Producto?.Nombre</td>
-                    <td>@item.ProductoVariante?.Talla / @item.ProductoVariante?.Color</td>
-                    <td>@item.Cantidad</td>
-                    <td>@item.PrecioUnitario.ToString("C")</td>
-                    <td>@((item.PrecioUnitario * item.Cantidad).ToString("C"))</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-
-    <h4 class="text-end">Total: @pedido.Total.ToString("C")</h4>
 }
+
+<ConfirmDialog Id="confirmarEliminarPedido" Titulo="Eliminar pedido"
+    Mensaje="@($"¿Eliminar el pedido #{Id}? Esta acción no se puede deshacer.")"
+    OnConfirmado="EliminarConfirmado" />
 
 @code {
     [Parameter]
@@ -63,6 +101,7 @@ else
 
     private Pedido? pedido;
     private string cliente = "Invitado";
+    private string? error;
 
     protected override async Task OnInitializedAsync()
     {
@@ -83,5 +122,21 @@ else
     private async Task GuardarEstado()
     {
         await Db.SaveChangesAsync();
+    }
+
+    private async Task EliminarConfirmado()
+    {
+        if (pedido is null) return;
+        error = null;
+
+        if (pedido.Estado != EstadoPedido.Cancelado)
+        {
+            error = "Solo se pueden eliminar pedidos cancelados.";
+            return;
+        }
+
+        Db.Pedidos.Remove(pedido);
+        await Db.SaveChangesAsync();
+        NavigationManager.NavigateTo("/admin/pedidos");
     }
 }
