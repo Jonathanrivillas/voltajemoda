@@ -1,15 +1,21 @@
 @page "/admin/pedidos"
 @rendermode InteractiveServer
 
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
-
 @inject ApplicationDbContext Db
 
 <PageTitle>Pedidos</PageTitle>
 
-<h3>Pedidos</h3>
+<div class="admin-page-header">
+    <div>
+        <h1>Pedidos</h1>
+        <p>Consulta y actualiza el estado de los pedidos.</p>
+    </div>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
 
 @if (pedidos is null)
 {
@@ -21,41 +27,86 @@ else if (pedidos.Count == 0)
 }
 else
 {
-    <table class="table align-middle">
-        <thead>
-            <tr>
-                <th>Fecha</th>
-                <th>Cliente</th>
-                <th>Total</th>
-                <th>Estado</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var pedido in pedidos)
+    <AdminCard>
+        <Toolbar>
+            <div class="admin-filter-bar">
+                <select class="form-select form-select-sm" @bind="filtroEstado">
+                    <option value="Todos">Todos los estados</option>
+                    @foreach (var estado in Enum.GetValues<EstadoPedido>())
+                    {
+                        <option value="@estado">@estado</option>
+                    }
+                </select>
+                <input type="date" class="form-control form-control-sm" @bind="filtroDesde" />
+                <span class="text-muted small">hasta</span>
+                <input type="date" class="form-control form-control-sm" @bind="filtroHasta" />
+            </div>
+        </Toolbar>
+        <ChildContent>
+            @if (PedidosFiltrados.Count == 0)
             {
-                <tr>
-                    <td>@pedido.Fecha.ToLocalTime().ToString("g")</td>
-                    <td>@(pedido.UsuarioId is not null ? usuarios.GetValueOrDefault(pedido.UsuarioId, "?") : "Invitado")</td>
-                    <td>@pedido.Total.ToString("C")</td>
-                    <td style="width: 180px;">
-                        <select class="form-select" @bind="pedido.Estado" @bind:after="() => GuardarEstado(pedido)">
-                            @foreach (var estado in Enum.GetValues<EstadoPedido>())
-                            {
-                                <option value="@estado">@estado</option>
-                            }
-                        </select>
-                    </td>
-                    <td><a href="/admin/pedidos/@pedido.Id">Ver detalle</a></td>
-                </tr>
+                <EstadoVacio Mensaje="Ningún pedido coincide con los filtros." />
             }
-        </tbody>
-    </table>
+            else
+            {
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pedido in PedidosFiltrados)
+                            {
+                                <tr>
+                                    <td>@pedido.Fecha.ToLocalTime().ToString("g")</td>
+                                    <td>@(pedido.UsuarioId is not null ? usuarios.GetValueOrDefault(pedido.UsuarioId, "?") : "Invitado")</td>
+                                    <td>@pedido.Total.ToString("C")</td>
+                                    <td style="width: 180px;">
+                                        <select class="form-select form-select-sm" @bind="pedido.Estado" @bind:after="() => GuardarEstado(pedido)">
+                                            @foreach (var estado in Enum.GetValues<EstadoPedido>())
+                                            {
+                                                <option value="@estado">@estado</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="/admin/pedidos/@pedido.Id" class="btn btn-sm btn-outline-dark">Ver detalle</a>
+                                        @if (pedido.Estado == EstadoPedido.Cancelado)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarPedido" @onclick="() => pedidoAEliminar = pedido">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </ChildContent>
+    </AdminCard>
 }
+
+<ConfirmDialog Id="confirmarEliminarPedido" Titulo="Eliminar pedido"
+    Mensaje="@($"¿Eliminar el pedido #{pedidoAEliminar?.Id}? Esta acción no se puede deshacer.")"
+    OnConfirmado="EliminarConfirmado" />
 
 @code {
     private List<Pedido>? pedidos;
     private Dictionary<string, string> usuarios = new();
+    private Pedido? pedidoAEliminar;
+    private string? error;
+
+    private string filtroEstado = "Todos";
+    private DateTime? filtroDesde;
+    private DateTime? filtroHasta;
 
     protected override async Task OnInitializedAsync()
     {
@@ -74,8 +125,56 @@ else
             .ToDictionaryAsync(u => u.Id, u => u.Email ?? u.UserName ?? u.Id);
     }
 
+    private List<Pedido> PedidosFiltrados
+    {
+        get
+        {
+            if (pedidos is null) return new();
+
+            IEnumerable<Pedido> query = pedidos;
+
+            if (filtroEstado != "Todos" && Enum.TryParse<EstadoPedido>(filtroEstado, out var estado))
+            {
+                query = query.Where(p => p.Estado == estado);
+            }
+
+            if (filtroDesde is not null)
+            {
+                query = query.Where(p => p.Fecha.Date >= filtroDesde.Value.Date);
+            }
+
+            if (filtroHasta is not null)
+            {
+                query = query.Where(p => p.Fecha.Date <= filtroHasta.Value.Date);
+            }
+
+            return query.ToList();
+        }
+    }
+
     private async Task GuardarEstado(Pedido pedido)
     {
         await Db.SaveChangesAsync();
+    }
+
+    private async Task EliminarConfirmado()
+    {
+        if (pedidoAEliminar is null) return;
+        error = null;
+
+        if (pedidoAEliminar.Estado != EstadoPedido.Cancelado)
+        {
+            error = "Solo se pueden eliminar pedidos cancelados.";
+            pedidoAEliminar = null;
+            return;
+        }
+
+        Db.Pedidos.Remove(pedidoAEliminar);
+        await Db.SaveChangesAsync();
+        pedidoAEliminar = null;
+
+        pedidos = await Db.Pedidos
+            .OrderByDescending(p => p.Fecha)
+            .ToListAsync();
     }
 }

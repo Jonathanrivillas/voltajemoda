@@ -1,0 +1,29 @@
+<div class="admin-card">
+    @if (Titulo is not null || Toolbar is not null)
+    {
+        <div class="admin-card__header">
+            @if (Titulo is not null)
+            {
+                <h2 class="admin-card__title">@Titulo</h2>
+            }
+            @if (Toolbar is not null)
+            {
+                <div class="admin-card__toolbar">@Toolbar</div>
+            }
+        </div>
+    }
+    <div class="admin-card__body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Titulo { get; set; }
+
+    [Parameter]
+    public RenderFragment? Toolbar { get; set; }
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

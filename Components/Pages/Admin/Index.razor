@@ -1,0 +1,179 @@
+@page "/admin"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+@inject DashboardService DashboardService
+@inject IJSRuntime JS
+
+<PageTitle>Panel de administración</PageTitle>
+
+<div class="admin-page-header">
+    <div>
+        <h1>Panel de administración</h1>
+        <p>@DateTime.Now.ToString("dddd d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-ES"))</p>
+    </div>
+</div>
+
+@if (resumen is null)
+{
+    <Cargando />
+}
+else
+{
+    <div class="admin-stats-row">
+        <AdminStatCard Titulo="Ingresos hoy" Valor="@resumen.IngresosHoy.ToString("C")" Icono="bi-cash-coin" />
+        <AdminStatCard Titulo="Ingresos del mes" Valor="@resumen.IngresosMes.ToString("C")" Icono="bi-graph-up-arrow" />
+        <AdminStatCard Titulo="Pedidos hoy" Valor="@resumen.PedidosHoy.ToString()" Icono="bi-bag-check" />
+        <AdminStatCard Titulo="Pedidos pendientes" Valor="@resumen.PedidosPendientes.ToString()" Icono="bi-hourglass-split" />
+        <AdminStatCard Titulo="Variantes con stock bajo" Valor="@resumen.ProductosBajoStock.ToString()" Icono="bi-exclamation-triangle" />
+        <AdminStatCard Titulo="Productos / Categorías" Valor="@($"{resumen.TotalProductos} / {resumen.TotalCategorias}")" Icono="bi-box-seam" />
+    </div>
+
+    <div class="admin-grid-2">
+        <div>
+            <AdminCard Titulo="Ventas de los últimos 30 días">
+                <div class="admin-chart-container">
+                    <canvas id="@ventasChartId"></canvas>
+                </div>
+            </AdminCard>
+
+            <AdminCard Titulo="Productos más vendidos">
+                @if (topProductos is null || topProductos.Count == 0)
+                {
+                    <EstadoVacio Mensaje="Todavía no hay ventas registradas." />
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Unidades vendidas</th>
+                                    <th>Ingresos</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var producto in topProductos)
+                                {
+                                    <tr>
+                                        <td>@producto.Nombre</td>
+                                        <td>@producto.UnidadesVendidas</td>
+                                        <td>@producto.IngresosGenerados.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </AdminCard>
+        </div>
+
+        <div>
+            <AdminCard Titulo="Pedidos recientes">
+                @if (pedidosRecientes is null || pedidosRecientes.Count == 0)
+                {
+                    <EstadoVacio Mensaje="Todavía no hay pedidos." />
+                }
+                else
+                {
+                    @foreach (var pedido in pedidosRecientes)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <a href="/admin/pedidos/@pedido.PedidoId" class="fw-semibold text-decoration-none text-dark">#@pedido.PedidoId</a>
+                                <div class="text-muted small">@pedido.Cliente · @pedido.Fecha.ToLocalTime().ToString("g")</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-semibold">@pedido.Total.ToString("C")</div>
+                                <EstadoPedidoBadge Estado="pedido.Estado" />
+                            </div>
+                        </div>
+                    }
+                }
+            </AdminCard>
+
+            <AdminCard Titulo="Alertas de stock">
+                @if (alertasStock is null || alertasStock.Count == 0)
+                {
+                    <EstadoVacio Mensaje="No hay variantes con stock bajo." />
+                }
+                else
+                {
+                    @foreach (var alerta in alertasStock)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <div class="fw-semibold">@alerta.ProductoNombre</div>
+                                <div class="text-muted small">@alerta.Talla / @alerta.Color</div>
+                            </div>
+                            <StockBadge Stock="alerta.Stock" />
+                        </div>
+                    }
+
+                    <a href="/admin/inventario" class="btn btn-sm btn-outline-dark mt-3 w-100">Ir a Inventario</a>
+                }
+            </AdminCard>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly string ventasChartId = $"ventasChart-{Guid.NewGuid():N}";
+
+    private KpiResumenDto? resumen;
+    private List<PuntoVentaDiariaDto>? ventas;
+    private List<ProductoMasVendidoDto>? topProductos;
+    private List<PedidoRecienteDto>? pedidosRecientes;
+    private List<AlertaStockDto>? alertasStock;
+
+    protected override async Task OnInitializedAsync()
+    {
+        resumen = await DashboardService.ObtenerResumenAsync();
+        ventas = await DashboardService.ObtenerVentasUltimosDiasAsync();
+        topProductos = await DashboardService.ObtenerTopProductosAsync();
+        pedidosRecientes = await DashboardService.ObtenerPedidosRecientesAsync();
+        alertasStock = await DashboardService.ObtenerAlertasStockAsync();
+    }
+
+    private bool graficoRenderizado;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!graficoRenderizado && ventas is not null)
+        {
+            graficoRenderizado = true;
+            var etiquetas = ventas.Select(v => v.Fecha.ToString("dd/MM")).ToArray();
+            var datos = ventas.Select(v => v.Total).ToArray();
+
+            // El gráfico es decorativo: si la llamada JS falla (script todavía cargando,
+            // circuito reconectando, etc.) no debe tumbar el circuito completo.
+            try
+            {
+                await JS.InvokeVoidAsync("adminCharts.renderLineChart", ventasChartId, etiquetas, datos, "Ventas");
+            }
+            catch (JSException)
+            {
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("adminCharts.destroyChart", ventasChartId);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // El componente se descartó sin haberse renderizado de forma interactiva
+            // (por ejemplo, solo se prerenderizó) — no hay nada que limpiar.
+        }
+    }
+}

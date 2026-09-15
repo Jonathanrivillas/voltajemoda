@@ -1,63 +1,90 @@
 @page "/admin/categorias"
 @rendermode InteractiveServer
 
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
-
 @inject ApplicationDbContext Db
 
 <PageTitle>Categorías</PageTitle>
 
-<h3>Categorías</h3>
+<div class="admin-page-header">
+    <div>
+        <h1>Categorías</h1>
+        <p>Organiza el catálogo por categorías.</p>
+    </div>
+    <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalCategoria" @onclick="AbrirNueva">
+        <i class="bi bi-plus-lg"></i> Nueva categoría
+    </button>
+</div>
 
 @if (error is not null)
 {
     <div class="alert alert-danger">@error</div>
 }
 
-<EditForm Model="nuevaCategoria" OnValidSubmit="AgregarCategoria" class="row g-2 mb-4 align-items-end">
-    <div class="col-auto">
-        <label for="nombre" class="form-label">Nueva categoría</label>
-        <InputText id="nombre" class="form-control" @bind-Value="nuevaCategoria.Nombre" />
-    </div>
-    <div class="col-auto">
-        <button type="submit" class="btn btn-primary">Agregar</button>
-    </div>
-</EditForm>
-
 @if (categorias is null)
 {
     <Cargando />
 }
+else if (categorias.Count == 0)
+{
+    <EstadoVacio Mensaje="Todavía no hay categorías." />
+}
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Productos</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var categoria in categorias)
-            {
-                <tr>
-                    <td>@categoria.Nombre</td>
-                    <td>@categoria.Productos.Count</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(categoria)">Eliminar</button>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="admin-categoria-grid">
+        @foreach (var categoria in categorias)
+        {
+            <div class="admin-categoria-card">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="admin-categoria-avatar">@categoria.Nombre.Substring(0, 1).ToUpperInvariant()</span>
+                    <div>
+                        <div class="fw-bold">@categoria.Nombre</div>
+                        <div class="text-muted small">@categoria.Productos.Count producto(s)</div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-dark flex-fill" data-bs-toggle="modal" data-bs-target="#modalCategoria" @onclick="() => AbrirEditar(categoria)">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarCategoria" @onclick="() => categoriaAEliminar = categoria">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
 }
+
+<div class="modal fade" id="modalCategoria" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <EditForm Model="categoriaEdicion" OnValidSubmit="Guardar">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(categoriaEdicion.Id == 0 ? "Nueva categoría" : "Editar categoría")</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+                    <label class="form-label">Nombre</label>
+                    <InputText class="form-control" @bind-Value="categoriaEdicion.Nombre" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-dark" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-dark" data-bs-dismiss="modal">Guardar</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+<ConfirmDialog Id="confirmarEliminarCategoria" Titulo="Eliminar categoría"
+    Mensaje="@($"¿Eliminar '{categoriaAEliminar?.Nombre}'?")"
+    OnConfirmado="EliminarConfirmada" />
 
 @code {
     private List<Categoria>? categorias;
-    private Categoria nuevaCategoria = new();
+    private Categoria categoriaEdicion = new();
+    private Categoria? categoriaAEliminar;
     private string? error;
 
     protected override async Task OnInitializedAsync()
@@ -69,29 +96,41 @@ else
     {
         categorias = await Db.Categorias
             .Include(c => c.Productos)
+            .OrderBy(c => c.Nombre)
             .ToListAsync();
     }
 
-    private async Task AgregarCategoria()
+    private void AbrirNueva() => categoriaEdicion = new();
+
+    private void AbrirEditar(Categoria categoria) => categoriaEdicion = categoria;
+
+    private async Task Guardar()
     {
-        Db.Categorias.Add(nuevaCategoria);
+        if (categoriaEdicion.Id == 0)
+        {
+            Db.Categorias.Add(categoriaEdicion);
+        }
+
         await Db.SaveChangesAsync();
-        nuevaCategoria = new();
+        categoriaEdicion = new();
         await CargarAsync();
     }
 
-    private async Task Eliminar(Categoria categoria)
+    private async Task EliminarConfirmada()
     {
+        if (categoriaAEliminar is null) return;
         error = null;
 
-        if (categoria.Productos.Count > 0)
+        if (categoriaAEliminar.Productos.Count > 0)
         {
-            error = $"No se puede eliminar '{categoria.Nombre}': todavía tiene {categoria.Productos.Count} producto(s) asociado(s).";
+            error = $"No se puede eliminar '{categoriaAEliminar.Nombre}': todavía tiene {categoriaAEliminar.Productos.Count} producto(s) asociado(s).";
+            categoriaAEliminar = null;
             return;
         }
 
-        Db.Categorias.Remove(categoria);
+        Db.Categorias.Remove(categoriaAEliminar);
         await Db.SaveChangesAsync();
+        categoriaAEliminar = null;
         await CargarAsync();
     }
 }

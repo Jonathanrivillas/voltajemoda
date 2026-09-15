@@ -1,0 +1,177 @@
+@page "/admin/usuarios"
+@rendermode InteractiveServer
+
+@using System.Security.Claims
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Usuarios</PageTitle>
+
+<div class="admin-page-header">
+    <div>
+        <h1>Usuarios</h1>
+        <p>Consulta las cuentas registradas y otorga o revoca el rol de administrador.</p>
+    </div>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (usuarios is null)
+{
+    <Cargando />
+}
+else
+{
+    <AdminCard>
+        <Toolbar>
+            <input class="form-control form-control-sm" style="min-width:220px" placeholder="Buscar por nombre o correo..." @bind="busqueda" @bind:event="oninput" />
+        </Toolbar>
+        <ChildContent>
+        @if (UsuariosFiltrados.Count == 0)
+        {
+            <EstadoVacio Mensaje="Ningún usuario coincide con la búsqueda." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Correo</th>
+                            <th>Roles</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var fila in UsuariosFiltrados)
+                        {
+                            var esAdministrador = fila.Roles.Contains("Administrador");
+                            var esUsuarioActual = fila.Usuario.Id == currentUserId;
+
+                            <tr>
+                                <td>@fila.Usuario.Nombre</td>
+                                <td>@fila.Usuario.Email</td>
+                                <td>
+                                    @foreach (var rol in fila.Roles)
+                                    {
+                                        <span class="admin-badge admin-badge--enviado me-1">@rol</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (esUsuarioActual)
+                                    {
+                                        <span class="text-muted small">Tu cuenta</span>
+                                    }
+                                    else if (esAdministrador)
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarRevocar" @onclick="() => usuarioAAlternar = fila.Usuario">
+                                            Quitar administrador
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-dark" @onclick="() => OtorgarAdministrador(fila.Usuario)">
+                                            Hacer administrador
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        </ChildContent>
+    </AdminCard>
+}
+
+<ConfirmDialog Id="confirmarRevocar" Titulo="Quitar rol de administrador"
+    Mensaje="@($"¿Quitar el rol de administrador a '{usuarioAAlternar?.Nombre}'? Perderá acceso al panel.")"
+    TextoConfirmar="Quitar rol"
+    OnConfirmado="RevocarConfirmado" />
+
+@code {
+    private record FilaUsuario(ApplicationUser Usuario, IList<string> Roles);
+
+    private List<FilaUsuario>? usuarios;
+    private string? currentUserId;
+    private string busqueda = "";
+    private ApplicationUser? usuarioAAlternar;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        var todos = UserManager.Users.OrderBy(u => u.Nombre).ToList();
+        var filas = new List<FilaUsuario>();
+
+        foreach (var usuario in todos)
+        {
+            var roles = await UserManager.GetRolesAsync(usuario);
+            filas.Add(new FilaUsuario(usuario, roles));
+        }
+
+        usuarios = filas;
+    }
+
+    private List<FilaUsuario> UsuariosFiltrados
+    {
+        get
+        {
+            if (usuarios is null) return new();
+            if (string.IsNullOrWhiteSpace(busqueda)) return usuarios;
+
+            return usuarios
+                .Where(f => f.Usuario.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase)
+                    || (f.Usuario.Email ?? "").Contains(busqueda, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private async Task OtorgarAdministrador(ApplicationUser usuario)
+    {
+        error = null;
+        var resultado = await UserManager.AddToRoleAsync(usuario, "Administrador");
+        if (!resultado.Succeeded)
+        {
+            error = string.Join(" ", resultado.Errors.Select(e => e.Description));
+            return;
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task RevocarConfirmado()
+    {
+        if (usuarioAAlternar is null) return;
+        error = null;
+
+        if (usuarioAAlternar.Id == currentUserId)
+        {
+            error = "No puedes quitarte el rol de administrador a ti mismo.";
+            usuarioAAlternar = null;
+            return;
+        }
+
+        var resultado = await UserManager.RemoveFromRoleAsync(usuarioAAlternar, "Administrador");
+        if (!resultado.Succeeded)
+        {
+            error = string.Join(" ", resultado.Errors.Select(e => e.Description));
+        }
+
+        usuarioAAlternar = null;
+        await CargarAsync();
+    }
+}

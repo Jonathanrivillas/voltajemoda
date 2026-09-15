@@ -1,17 +1,17 @@
 @page "/admin/productos"
 @rendermode InteractiveServer
 
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
-
 @inject ApplicationDbContext Db
 
 <PageTitle>Productos</PageTitle>
 
-<h3>Productos</h3>
-
-<a href="/admin/productos/nuevo" class="btn btn-primary mb-3">Nuevo producto</a>
+<div class="admin-page-header">
+    <div>
+        <h1>Productos</h1>
+        <p>Gestiona el catálogo, precios, ofertas y variantes.</p>
+    </div>
+    <a href="/admin/productos/nuevo" class="btn btn-dark"><i class="bi bi-plus-lg"></i> Nuevo producto</a>
+</div>
 
 @if (error is not null)
 {
@@ -22,42 +22,107 @@
 {
     <Cargando />
 }
+else if (productos.Count == 0)
+{
+    <EstadoVacio Mensaje="Todavía no hay productos." EnlaceTexto="Crear el primero" EnlaceHref="/admin/productos/nuevo" />
+}
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Categoría</th>
-                <th>Precio</th>
-                <th>Variantes</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var producto in productos)
+    <AdminCard>
+        <Toolbar>
+            <div class="admin-filter-bar">
+                <input class="form-control form-control-sm" style="min-width:200px" placeholder="Buscar por nombre..." @bind="busqueda" @bind:event="oninput" />
+                <select class="form-select form-select-sm" @bind="categoriaId">
+                    <option value="0">Todas las categorías</option>
+                    @foreach (var categoria in categorias)
+                    {
+                        <option value="@categoria.Id">@categoria.Nombre</option>
+                    }
+                </select>
+                <select class="form-select form-select-sm" @bind="estadoStock">
+                    <option value="Todos">Todos los estados</option>
+                    <option value="EnStock">En stock</option>
+                    <option value="StockBajo">Stock bajo</option>
+                    <option value="SinStock">Sin stock</option>
+                </select>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="soloOferta" @bind="soloOferta" />
+                    <label class="form-check-label" for="soloOferta">En oferta</label>
+                </div>
+            </div>
+        </Toolbar>
+        <ChildContent>
+            @if (ProductosFiltrados.Count == 0)
             {
-                <tr>
-                    <td>@producto.Nombre</td>
-                    <td>@producto.Categoria?.Nombre</td>
-                    <td>@producto.Precio.ToString("C")</td>
-                    <td>@producto.Variantes.Count</td>
-                    <td>
-                        <a href="/admin/productos/@producto.Id/editar" class="btn btn-sm btn-outline-secondary">Editar</a>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(producto)">Eliminar</button>
-                    </td>
-                </tr>
+                <EstadoVacio Mensaje="Ningún producto coincide con los filtros." />
             }
-        </tbody>
-    </table>
+            else
+            {
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Variantes</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var producto in ProductosFiltrados)
+                            {
+                                <tr>
+                                    <td>
+                                        <img src="@producto.ImagenUrl" alt="@producto.Nombre" class="admin-table-thumb" />
+                                    </td>
+                                    <td>
+                                        @producto.Nombre
+                                        @if (producto.EnOferta)
+                                        {
+                                            <span class="admin-badge admin-badge--enviado ms-1">Oferta</span>
+                                        }
+                                    </td>
+                                    <td>@producto.Categoria?.Nombre</td>
+                                    <td>@producto.PrecioEfectivo.ToString("C")</td>
+                                    <td><StockBadge Stock="StockTotal(producto)" /></td>
+                                    <td>@producto.Variantes.Count</td>
+                                    <td class="text-end">
+                                        <a href="/admin/productos/@producto.Id/editar" class="btn btn-sm btn-outline-dark"><i class="bi bi-pencil"></i></a>
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarProducto" @onclick="() => productoAEliminar = producto">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </ChildContent>
+    </AdminCard>
 }
+
+<ConfirmDialog Id="confirmarEliminarProducto" Titulo="Eliminar producto"
+    Mensaje="@($"¿Eliminar '{productoAEliminar?.Nombre}'? Esta acción no se puede deshacer.")"
+    OnConfirmado="EliminarConfirmado" />
 
 @code {
     private List<Producto>? productos;
+    private List<Categoria> categorias = new();
     private string? error;
+    private Producto? productoAEliminar;
+
+    private string busqueda = "";
+    private int categoriaId;
+    private string estadoStock = "Todos";
+    private bool soloOferta;
 
     protected override async Task OnInitializedAsync()
     {
+        categorias = await Db.Categorias.OrderBy(c => c.Nombre).ToListAsync();
         await CargarAsync();
     }
 
@@ -66,22 +131,70 @@ else
         productos = await Db.Productos
             .Include(p => p.Categoria)
             .Include(p => p.Variantes)
+            .OrderBy(p => p.Nombre)
             .ToListAsync();
     }
 
-    private async Task Eliminar(Producto producto)
+    private int StockTotal(Producto producto) => producto.Variantes.Sum(v => v.Stock);
+
+    private List<Producto> ProductosFiltrados
     {
+        get
+        {
+            if (productos is null) return new();
+
+            IEnumerable<Producto> query = productos;
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                query = query.Where(p => p.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (categoriaId > 0)
+            {
+                query = query.Where(p => p.CategoriaId == categoriaId);
+            }
+
+            if (soloOferta)
+            {
+                query = query.Where(p => p.EnOferta);
+            }
+
+            query = estadoStock switch
+            {
+                "SinStock" => query.Where(p => StockTotal(p) == 0),
+                "StockBajo" => query.Where(p => StockTotal(p) > 0 && StockTotal(p) <= InventarioService.UmbralStockBajo),
+                "EnStock" => query.Where(p => StockTotal(p) > InventarioService.UmbralStockBajo),
+                _ => query
+            };
+
+            return query.ToList();
+        }
+    }
+
+    private async Task EliminarConfirmado()
+    {
+        if (productoAEliminar is null) return;
         error = null;
 
-        var fueComprado = await Db.PedidoItems.AnyAsync(pi => pi.ProductoVariante!.ProductoId == producto.Id);
-        if (fueComprado)
+        // Los pedidos cancelados no bloquean el borrado: solo importan los pedidos activos
+        // (cualquier estado distinto de Cancelado). Al borrar la variante/producto, los
+        // PedidoItem de pedidos cancelados que lo referencian se eliminan en cascada (por
+        // diseño de la base), perdiendo el detalle de artículos de ese pedido cancelado.
+        var tienePedidosActivos = await Db.PedidoItems
+            .AnyAsync(pi => pi.ProductoVariante!.ProductoId == productoAEliminar.Id
+                && pi.Pedido!.Estado != EstadoPedido.Cancelado);
+
+        if (tienePedidosActivos)
         {
-            error = $"No se puede eliminar '{producto.Nombre}': ya tiene pedidos asociados.";
+            error = $"No se puede eliminar '{productoAEliminar.Nombre}': tiene pedidos activos (no cancelados) asociados.";
+            productoAEliminar = null;
             return;
         }
 
-        Db.Productos.Remove(producto);
+        Db.Productos.Remove(productoAEliminar);
         await Db.SaveChangesAsync();
+        productoAEliminar = null;
         await CargarAsync();
     }
 }
