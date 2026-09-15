@@ -13,6 +13,7 @@ public class Producto
     public string ImagenUrl { get; set; } = string.Empty;
 
     public bool EnOferta { get; set; }
+    public bool Destacado { get; set; }
 
     [Precision(18, 2)]
     public decimal? PrecioOferta { get; set; }

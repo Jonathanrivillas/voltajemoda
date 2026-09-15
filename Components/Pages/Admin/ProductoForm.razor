@@ -63,11 +63,15 @@ else
                     </div>
                     @if (producto.EnOferta)
                     {
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <label class="form-label">Precio de oferta</label>
                             <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" />
                         </div>
                     }
+                    <div class="form-check mb-0">
+                        <InputCheckbox class="form-check-input" id="destacado" @bind-Value="producto.Destacado" />
+                        <label class="form-check-label" for="destacado">Producto destacado (aparece en "Ofertas destacadas" del inicio)</label>
+                    </div>
                 </AdminCard>
 
                 <AdminCard Titulo="Imagen">

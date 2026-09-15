@@ -49,6 +49,10 @@ else
                     <input class="form-check-input" type="checkbox" id="soloOferta" @bind="soloOferta" />
                     <label class="form-check-label" for="soloOferta">En oferta</label>
                 </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="soloDestacado" @bind="soloDestacado" />
+                    <label class="form-check-label" for="soloDestacado">Destacado</label>
+                </div>
             </div>
         </Toolbar>
         <ChildContent>
@@ -83,6 +87,10 @@ else
                                         @if (producto.EnOferta)
                                         {
                                             <span class="admin-badge admin-badge--enviado ms-1">Oferta</span>
+                                        }
+                                        @if (producto.Destacado)
+                                        {
+                                            <span class="admin-badge admin-badge--entregado ms-1">Destacado</span>
                                         }
                                     </td>
                                     <td>@producto.Categoria?.Nombre</td>
@@ -119,6 +127,7 @@ else
     private int categoriaId;
     private string estadoStock = "Todos";
     private bool soloOferta;
+    private bool soloDestacado;
 
     protected override async Task OnInitializedAsync()
     {
@@ -158,6 +167,11 @@ else
             if (soloOferta)
             {
                 query = query.Where(p => p.EnOferta);
+            }
+
+            if (soloDestacado)
+            {
+                query = query.Where(p => p.Destacado);
             }
 
             query = estadoStock switch

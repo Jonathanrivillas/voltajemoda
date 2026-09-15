@@ -19,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<PedidoItem> PedidoItems => Set<PedidoItem>();
     public DbSet<MovimientoStock> MovimientosStock => Set<MovimientoStock>();
+    public DbSet<BannerSlide> BannerSlides => Set<BannerSlide>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
