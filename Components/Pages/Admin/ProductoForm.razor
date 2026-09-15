@@ -2,16 +2,21 @@
 @page "/admin/productos/{Id:int}/editar"
 @rendermode InteractiveServer
 
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using Microsoft.AspNetCore.Hosting
 
 @inject ApplicationDbContext Db
 @inject NavigationManager NavigationManager
+@inject IWebHostEnvironment WebHostEnvironment
 
 <PageTitle>@(Id is null ? "Nuevo producto" : "Editar producto")</PageTitle>
 
-<h3>@(Id is null ? "Nuevo producto" : "Editar producto")</h3>
+<div class="admin-page-header">
+    <div>
+        <h1>@(Id is null ? "Nuevo producto" : "Editar producto")</h1>
+        <p>@(Id is null ? "Completa los datos para agregarlo al catálogo." : "Modifica los datos y variantes del producto.")</p>
+    </div>
+    <a href="/admin/productos" class="btn btn-outline-dark"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
 
 @if (!cargado)
 {
@@ -19,105 +24,147 @@
 }
 else
 {
-    <EditForm Model="producto" OnValidSubmit="Guardar" class="mb-4">
+    <EditForm Model="producto" OnValidSubmit="Guardar">
         <DataAnnotationsValidator />
         <ValidationSummary class="text-danger" />
 
-        <div class="mb-3">
-            <label class="form-label">Nombre</label>
-            <InputText class="form-control" @bind-Value="producto.Nombre" />
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Descripción</label>
-            <InputTextArea class="form-control" @bind-Value="producto.Descripcion" />
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Precio</label>
-            <InputNumber class="form-control" @bind-Value="producto.Precio" />
-        </div>
-        <div class="mb-3">
-            <label class="form-label">URL de imagen</label>
-            <InputText class="form-control" @bind-Value="producto.ImagenUrl" />
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Categoría</label>
-            <InputSelect class="form-select" @bind-Value="producto.CategoriaId">
-                @foreach (var categoria in categorias)
-                {
-                    <option value="@categoria.Id">@categoria.Nombre</option>
-                }
-            </InputSelect>
-        </div>
-
-        <div class="form-check mb-3">
-            <InputCheckbox class="form-check-input" id="enOferta" @bind-Value="producto.EnOferta" />
-            <label class="form-check-label" for="enOferta">En oferta</label>
-        </div>
-
-        @if (producto.EnOferta)
-        {
-            <div class="mb-3">
-                <label class="form-label">Precio de oferta</label>
-                <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" />
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <AdminCard Titulo="Datos generales">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <InputText class="form-control" @bind-Value="producto.Nombre" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <InputTextArea class="form-control" rows="4" @bind-Value="producto.Descripcion" />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Categoría</label>
+                        <InputSelect class="form-select" @bind-Value="producto.CategoriaId">
+                            @foreach (var categoria in categorias)
+                            {
+                                <option value="@categoria.Id">@categoria.Nombre</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </AdminCard>
             </div>
-        }
 
-        <button type="submit" class="btn btn-dark">Guardar</button>
+            <div class="col-lg-5">
+                <AdminCard Titulo="Precio y oferta">
+                    <div class="mb-3">
+                        <label class="form-label">Precio</label>
+                        <InputNumber class="form-control" @bind-Value="producto.Precio" />
+                    </div>
+                    <div class="form-check mb-3">
+                        <InputCheckbox class="form-check-input" id="enOferta" @bind-Value="producto.EnOferta" />
+                        <label class="form-check-label" for="enOferta">En oferta</label>
+                    </div>
+                    @if (producto.EnOferta)
+                    {
+                        <div class="mb-0">
+                            <label class="form-label">Precio de oferta</label>
+                            <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" />
+                        </div>
+                    }
+                </AdminCard>
+
+                <AdminCard Titulo="Imagen">
+                    <div class="mb-3">
+                        <label class="form-label">Subir desde el equipo</label>
+                        <InputFile class="form-control" OnChange="SubirImagen" accept="image/png,image/jpeg,image/webp,image/gif" disabled="@subiendoImagen" />
+                        @if (subiendoImagen)
+                        {
+                            <div class="text-muted small mt-1">Subiendo imagen...</div>
+                        }
+                        @if (errorImagen is not null)
+                        {
+                            <div class="text-danger small mt-1">@errorImagen</div>
+                        }
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">O pegar una URL externa</label>
+                        <InputText class="form-control" @bind-Value="producto.ImagenUrl" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(producto.ImagenUrl))
+                    {
+                        <img src="@producto.ImagenUrl" alt="Vista previa" class="admin-image-preview" />
+                    }
+                </AdminCard>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-dark mt-2">Guardar</button>
     </EditForm>
 
     @if (Id is not null)
     {
-        <hr />
-        <h5>Variantes</h5>
+        <AdminCard Titulo="Variantes" >
+            @if (varianteError is not null)
+            {
+                <div class="alert alert-danger">@varianteError</div>
+            }
 
-        @if (varianteError is not null)
-        {
-            <div class="alert alert-danger">@varianteError</div>
-        }
+            @if (producto.Variantes.Count == 0)
+            {
+                <EstadoVacio Mensaje="Todavía no hay variantes cargadas." />
+            }
+            else
+            {
+                <div class="table-responsive mb-3">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Talla</th>
+                                <th>Color</th>
+                                <th>Stock</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var variante in producto.Variantes)
+                            {
+                                <tr>
+                                    <td>@variante.Talla</td>
+                                    <td>@variante.Color</td>
+                                    <td><StockBadge Stock="variante.Stock" /></td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarVariante" @onclick="() => varianteAEliminar = variante">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
 
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Talla</th>
-                    <th>Color</th>
-                    <th>Stock</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var variante in producto.Variantes)
-                {
-                    <tr>
-                        <td>@variante.Talla</td>
-                        <td>@variante.Color</td>
-                        <td>@variante.Stock</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarVariante(variante)">Eliminar</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-
-        <EditForm Model="nuevaVariante" OnValidSubmit="AgregarVariante" class="row g-2 align-items-end">
-            <div class="col-auto">
-                <label class="form-label">Talla</label>
-                <InputText class="form-control" @bind-Value="nuevaVariante.Talla" />
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Color</label>
-                <InputText class="form-control" @bind-Value="nuevaVariante.Color" />
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Stock</label>
-                <InputNumber class="form-control" @bind-Value="nuevaVariante.Stock" />
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-secondary">Agregar variante</button>
-            </div>
-        </EditForm>
+            <EditForm Model="nuevaVariante" OnValidSubmit="AgregarVariante" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label">Talla</label>
+                    <InputText class="form-control" @bind-Value="nuevaVariante.Talla" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label">Color</label>
+                    <InputText class="form-control" @bind-Value="nuevaVariante.Color" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label">Stock</label>
+                    <InputNumber class="form-control" @bind-Value="nuevaVariante.Stock" />
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-outline-dark">Agregar variante</button>
+                </div>
+            </EditForm>
+        </AdminCard>
     }
 }
+
+<ConfirmDialog Id="confirmarEliminarVariante" Titulo="Eliminar variante"
+    Mensaje="@($"¿Eliminar la variante {varianteAEliminar?.Talla} / {varianteAEliminar?.Color}?")"
+    OnConfirmado="EliminarVarianteConfirmada" />
 
 @code {
     [Parameter]
@@ -127,11 +174,17 @@ else
     private Producto producto = new();
     private List<Categoria> categorias = new();
     private ProductoVariante nuevaVariante = new();
+    private ProductoVariante? varianteAEliminar;
     private string? varianteError;
+
+    private bool subiendoImagen;
+    private string? errorImagen;
+    private const long TamanoMaximoImagen = 5 * 1024 * 1024;
+    private static readonly string[] ExtensionesImagenPermitidas = { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
 
     protected override async Task OnInitializedAsync()
     {
-        categorias = await Db.Categorias.ToListAsync();
+        categorias = await Db.Categorias.OrderBy(c => c.Nombre).ToListAsync();
 
         if (Id is not null)
         {
@@ -166,6 +219,51 @@ else
         }
     }
 
+    private async Task SubirImagen(InputFileChangeEventArgs e)
+    {
+        errorImagen = null;
+        var archivo = e.File;
+
+        var extension = Path.GetExtension(archivo.Name).ToLowerInvariant();
+        if (!ExtensionesImagenPermitidas.Contains(extension))
+        {
+            errorImagen = "Formato no soportado. Usa JPG, PNG, WEBP o GIF.";
+            return;
+        }
+
+        if (archivo.Size > TamanoMaximoImagen)
+        {
+            errorImagen = "La imagen no puede superar los 5 MB.";
+            return;
+        }
+
+        subiendoImagen = true;
+        try
+        {
+            var carpeta = Path.Combine(WebHostEnvironment.WebRootPath, "uploads", "productos");
+            Directory.CreateDirectory(carpeta);
+
+            var nombreArchivo = $"{Guid.NewGuid():N}{extension}";
+            var rutaCompleta = Path.Combine(carpeta, nombreArchivo);
+
+            await using (var stream = archivo.OpenReadStream(TamanoMaximoImagen))
+            await using (var destino = File.Create(rutaCompleta))
+            {
+                await stream.CopyToAsync(destino);
+            }
+
+            producto.ImagenUrl = $"/uploads/productos/{nombreArchivo}";
+        }
+        catch (IOException)
+        {
+            errorImagen = "No se pudo guardar la imagen. Intenta de nuevo.";
+        }
+        finally
+        {
+            subiendoImagen = false;
+        }
+    }
+
     private async Task AgregarVariante()
     {
         varianteError = null;
@@ -184,21 +282,29 @@ else
         nuevaVariante = new();
     }
 
-    private async Task EliminarVariante(ProductoVariante variante)
+    private async Task EliminarVarianteConfirmada()
     {
+        if (varianteAEliminar is null) return;
         varianteError = null;
 
-        var enUso = await Db.PedidoItems.AnyAsync(pi => pi.ProductoVarianteId == variante.Id)
-            || await Db.CarritoItems.AnyAsync(ci => ci.ProductoVarianteId == variante.Id);
+        // Los pedidos cancelados no bloquean el borrado, solo los pedidos activos. Al borrar la
+        // variante, los PedidoItem de pedidos cancelados que la referencian se eliminan en
+        // cascada (por diseño de la base), perdiendo el detalle de artículos de ese pedido.
+        var tienePedidosActivos = await Db.PedidoItems.AnyAsync(pi => pi.ProductoVarianteId == varianteAEliminar.Id
+            && pi.Pedido!.Estado != EstadoPedido.Cancelado);
+        var enCarrito = await Db.CarritoItems.AnyAsync(ci => ci.ProductoVarianteId == varianteAEliminar.Id);
+        var tieneMovimientos = await Db.MovimientosStock.AnyAsync(m => m.ProductoVarianteId == varianteAEliminar.Id);
 
-        if (enUso)
+        if (tienePedidosActivos || enCarrito || tieneMovimientos)
         {
-            varianteError = "No se puede eliminar esta variante: está en un carrito o pedido.";
+            varianteError = "No se puede eliminar esta variante: está en un carrito, tiene pedidos activos (no cancelados) o movimientos de stock registrados.";
+            varianteAEliminar = null;
             return;
         }
 
-        Db.ProductoVariantes.Remove(variante);
+        Db.ProductoVariantes.Remove(varianteAEliminar);
         await Db.SaveChangesAsync();
-        producto.Variantes.Remove(variante);
+        producto.Variantes.Remove(varianteAEliminar);
+        varianteAEliminar = null;
     }
 }

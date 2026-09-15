@@ -18,4 +18,20 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<CarritoItem> CarritoItems => Set<CarritoItem>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<PedidoItem> PedidoItems => Set<PedidoItem>();
+    public DbSet<MovimientoStock> MovimientosStock => Set<MovimientoStock>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<MovimientoStock>()
+            .HasOne(m => m.ProductoVariante)
+            .WithMany()
+            .HasForeignKey(m => m.ProductoVarianteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MovimientoStock>()
+            .Property(m => m.Motivo)
+            .HasMaxLength(200);
+    }
 }

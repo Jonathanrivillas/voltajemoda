@@ -1,0 +1,69 @@
+<div class="modal fade" id="@Id" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@Titulo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">@Mensaje</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-dark" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" disabled="@procesando" @onclick="Confirmar">@TextoConfirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Mensaje { get; set; } = default!;
+
+    [Parameter]
+    public string TextoConfirmar { get; set; } = "Eliminar";
+
+    [Parameter, EditorRequired]
+    public EventCallback OnConfirmado { get; set; }
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+
+    private bool procesando;
+
+    private async Task Confirmar()
+    {
+        // No se usa data-bs-dismiss en este botón a propósito: si Bootstrap cierra el modal
+        // (moviendo el foco) al mismo tiempo que Blazor procesa el @onclick, se pisan los dos
+        // eventos (y el navegador tira el warning de aria-hidden con foco retenido). Se cierra
+        // por código recién cuando OnConfirmado termina.
+        procesando = true;
+        try
+        {
+            await OnConfirmado.InvokeAsync();
+        }
+        finally
+        {
+            procesando = false;
+        }
+
+        // OnConfirmado ya se ejecutó (el borrado quedó guardado); si el cierre automático del
+        // modal falla no debe tumbar el circuito ni ocultar que la acción sí se completó.
+        try
+        {
+            await JS.InvokeVoidAsync("adminUi.cerrarModal", Id);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}

@@ -1,0 +1,31 @@
+<div class="admin-stat-card">
+    <div class="admin-stat-card__icon"><i class="bi @Icono"></i></div>
+    <div class="admin-stat-card__body">
+        <p class="admin-stat-card__label">@Titulo</p>
+        <p class="admin-stat-card__value">@Valor</p>
+        @if (Tendencia is not null)
+        {
+            <p class="admin-stat-card__trend @(Tendencia >= 0 ? "admin-stat-card__trend--up" : "admin-stat-card__trend--down")">
+                <i class="bi @(Tendencia >= 0 ? "bi-arrow-up-right" : "bi-arrow-down-right")"></i>
+                @Math.Abs(Tendencia.Value).ToString("0.#")% @TendenciaEtiqueta
+            </p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Valor { get; set; } = default!;
+
+    [Parameter]
+    public string Icono { get; set; } = "bi-graph-up";
+
+    [Parameter]
+    public decimal? Tendencia { get; set; }
+
+    [Parameter]
+    public string? TendenciaEtiqueta { get; set; }
+}

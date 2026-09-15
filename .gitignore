@@ -9,6 +9,9 @@
 # Local development secrets (connection strings, passwords)
 appsettings.Development.json
 
+# Imágenes de productos subidas en tiempo de ejecución (no son parte del código fuente)
+wwwroot/uploads/
+
 # User-specific files
 *.rsuser
 *.suo

@@ -110,6 +110,9 @@ else
 }
 
 builder.Services.AddScoped<CarritoService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<InventarioService>();
+builder.Services.AddScoped<EstadisticasService>();
 
 builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(365));
 
@@ -152,6 +155,11 @@ else
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+// MapStaticAssets() (abajo) solo sirve assets conocidos en tiempo de compilación (el manifiesto
+// de fingerprinting). Los archivos que se suben en tiempo de ejecución (imágenes de productos)
+// necesitan el middleware clásico, que lee directo del disco en cada request.
+app.UseStaticFiles();
 
 app.UseAntiforgery();
 

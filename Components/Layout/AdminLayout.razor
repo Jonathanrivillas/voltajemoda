@@ -1,23 +1,117 @@
 @inherits LayoutComponentBase
-@layout VoltajeModa.Components.Layout.MainLayout
+@implements IDisposable
 
-<h1>Panel de administración</h1>
+@inject NavigationManager NavigationManager
 
-<div class="row">
-    <div class="col-lg-3">
-        <ul class="nav nav-pills flex-column">
-            <li class="nav-item">
-                <NavLink class="nav-link" href="admin/productos">Productos</NavLink>
-            </li>
-            <li class="nav-item">
-                <NavLink class="nav-link" href="admin/categorias">Categorías</NavLink>
-            </li>
-            <li class="nav-item">
-                <NavLink class="nav-link" href="admin/pedidos">Pedidos</NavLink>
-            </li>
-        </ul>
-    </div>
-    <div class="col-lg-9">
-        @Body
+@* Chart.js/admin-charts.js/admin-ui.js se cargan desde App.razor (no desde acá): con la navegación
+   "enhanced" de Blazor, un <script> agregado dinámicamente vía <HeadContent> del layout no bloquea
+   ni garantiza estar listo cuando OnAfterRenderAsync intenta usarlo — causaba una carrera que
+   tumbaba el circuito entero. App.razor es el shell raíz, siempre presente antes de que corra
+   cualquier componente interactivo. *@
+<HeadContent>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="@Assets["admin.css"]" />
+</HeadContent>
+
+<div class="admin-shell @(sidebarAbierto ? "admin-shell--abierta" : "")">
+    <div class="admin-sidebar-backdrop" @onclick="CerrarSidebar"></div>
+
+    <aside class="admin-sidebar">
+        <a class="admin-sidebar__brand" href="admin">VOLTAJE <span>Admin</span></a>
+
+        <nav class="admin-sidebar__nav">
+            <NavLink class="admin-nav-link" href="admin" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2"></i> <span>Panel</span>
+            </NavLink>
+            <NavLink class="admin-nav-link" href="admin/productos">
+                <i class="bi bi-box-seam"></i> <span>Productos</span>
+            </NavLink>
+            <NavLink class="admin-nav-link" href="admin/categorias">
+                <i class="bi bi-tags"></i> <span>Categorías</span>
+            </NavLink>
+            <NavLink class="admin-nav-link" href="admin/inventario">
+                <i class="bi bi-clipboard-data"></i> <span>Inventario</span>
+            </NavLink>
+            <NavLink class="admin-nav-link" href="admin/pedidos">
+                <i class="bi bi-receipt"></i> <span>Pedidos</span>
+            </NavLink>
+            <NavLink class="admin-nav-link" href="admin/estadisticas">
+                <i class="bi bi-graph-up"></i> <span>Estadísticas</span>
+            </NavLink>
+            <NavLink class="admin-nav-link" href="admin/usuarios">
+                <i class="bi bi-people"></i> <span>Usuarios</span>
+            </NavLink>
+        </nav>
+
+        <a class="admin-nav-link admin-nav-link--muted" href="/">
+            <i class="bi bi-box-arrow-left"></i> <span>Volver al sitio</span>
+        </a>
+    </aside>
+
+    <div class="admin-content">
+        <header class="admin-topbar">
+            <button class="admin-topbar__toggle" @onclick="AlternarSidebar" aria-label="Mostrar/ocultar menú">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <div class="admin-topbar__search">
+                <i class="bi bi-search"></i>
+                <input type="search" placeholder="Buscar en el panel..." disabled />
+            </div>
+
+            <div class="admin-topbar__actions">
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="dropdown">
+                            <button class="admin-user-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="admin-user-avatar">@(context.User.Identity?.Name?.Trim().Substring(0, 1).ToUpperInvariant() ?? "?")</span>
+                                <span class="admin-user-name">@context.User.Identity?.Name</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><NavLink class="dropdown-item" href="Account/Manage">Mi cuenta</NavLink></li>
+                                <li><NavLink class="dropdown-item" href="/">Volver al sitio</NavLink></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <form action="Account/Logout" method="post">
+                                        <AntiforgeryToken />
+                                        <input type="hidden" name="ReturnUrl" value="/" />
+                                        <button type="submit" class="dropdown-item">Salir</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </header>
+
+        <main class="admin-main">
+            @Body
+        </main>
     </div>
 </div>
+
+@code {
+    private bool sidebarAbierto;
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void AlternarSidebar() => sidebarAbierto = !sidebarAbierto;
+
+    private void CerrarSidebar() => sidebarAbierto = false;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        sidebarAbierto = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
