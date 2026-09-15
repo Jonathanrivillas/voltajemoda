@@ -68,9 +68,13 @@ else
                             <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" />
                         </div>
                     }
-                    <div class="form-check mb-0">
+                    <div class="form-check mb-3">
                         <InputCheckbox class="form-check-input" id="destacado" @bind-Value="producto.Destacado" />
                         <label class="form-check-label" for="destacado">Producto destacado (aparece en "Ofertas destacadas" del inicio)</label>
+                    </div>
+                    <div class="form-check mb-0">
+                        <InputCheckbox class="form-check-input" id="esNuevo" @bind-Value="producto.EsNuevo" />
+                        <label class="form-check-label" for="esNuevo">Marcar como "Nuevo" en el catálogo</label>
                     </div>
                 </AdminCard>
 
@@ -163,8 +167,59 @@ else
                 </div>
             </EditForm>
         </AdminCard>
+
+        <AdminCard Titulo="Imágenes adicionales">
+            <p class="text-muted small">La imagen principal se configura arriba, en "Imagen". Acá podés agregar fotos extra para que el cliente las recorra en el catálogo.</p>
+
+            @if (imagenError is not null)
+            {
+                <div class="alert alert-danger">@imagenError</div>
+            }
+
+            @if (producto.ImagenesAdicionales.Count == 0)
+            {
+                <EstadoVacio Mensaje="Todavía no hay imágenes adicionales." />
+            }
+            else
+            {
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    @foreach (var imagen in producto.ImagenesAdicionales.OrderBy(i => i.Orden))
+                    {
+                        <div>
+                            <img src="@imagen.Url" alt="Imagen adicional" class="admin-image-preview" />
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 w-100" data-bs-toggle="modal" data-bs-target="#confirmarEliminarImagen" @onclick="() => imagenAEliminar = imagen">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Subir desde el equipo</label>
+                <InputFile class="form-control" OnChange="SubirImagenAdicional" accept="image/png,image/jpeg,image/webp,image/gif" disabled="@subiendoImagenAdicional" />
+                @if (subiendoImagenAdicional)
+                {
+                    <div class="text-muted small mt-1">Subiendo imagen...</div>
+                }
+            </div>
+
+            <div class="row g-2 align-items-end">
+                <div class="col-auto flex-grow-1">
+                    <label class="form-label">O pegar una URL externa</label>
+                    <input class="form-control" @bind="nuevaImagenUrl" />
+                </div>
+                <div class="col-auto">
+                    <button type="button" class="btn btn-outline-dark" @onclick="AgregarImagenPorUrl">Agregar imagen</button>
+                </div>
+            </div>
+        </AdminCard>
     }
 }
+
+<ConfirmDialog Id="confirmarEliminarImagen" Titulo="Eliminar imagen"
+    Mensaje="¿Eliminar esta imagen adicional del producto?"
+    OnConfirmado="EliminarImagenConfirmada" />
 
 <ConfirmDialog Id="confirmarEliminarVariante" Titulo="Eliminar variante"
     Mensaje="@($"¿Eliminar la variante {varianteAEliminar?.Talla} / {varianteAEliminar?.Color}?")"
@@ -186,6 +241,11 @@ else
     private const long TamanoMaximoImagen = 5 * 1024 * 1024;
     private static readonly string[] ExtensionesImagenPermitidas = { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
 
+    private bool subiendoImagenAdicional;
+    private string? imagenError;
+    private string nuevaImagenUrl = string.Empty;
+    private ProductoImagen? imagenAEliminar;
+
     protected override async Task OnInitializedAsync()
     {
         categorias = await Db.Categorias.OrderBy(c => c.Nombre).ToListAsync();
@@ -194,6 +254,7 @@ else
         {
             var encontrado = await Db.Productos
                 .Include(p => p.Variantes)
+                .Include(p => p.ImagenesAdicionales)
                 .FirstOrDefaultAsync(p => p.Id == Id);
 
             if (encontrado is not null)
@@ -266,6 +327,91 @@ else
         {
             subiendoImagen = false;
         }
+    }
+
+    private async Task SubirImagenAdicional(InputFileChangeEventArgs e)
+    {
+        imagenError = null;
+        var archivo = e.File;
+
+        var extension = Path.GetExtension(archivo.Name).ToLowerInvariant();
+        if (!ExtensionesImagenPermitidas.Contains(extension))
+        {
+            imagenError = "Formato no soportado. Usa JPG, PNG, WEBP o GIF.";
+            return;
+        }
+
+        if (archivo.Size > TamanoMaximoImagen)
+        {
+            imagenError = "La imagen no puede superar los 5 MB.";
+            return;
+        }
+
+        subiendoImagenAdicional = true;
+        try
+        {
+            var carpeta = Path.Combine(WebHostEnvironment.WebRootPath, "uploads", "productos");
+            Directory.CreateDirectory(carpeta);
+
+            var nombreArchivo = $"{Guid.NewGuid():N}{extension}";
+            var rutaCompleta = Path.Combine(carpeta, nombreArchivo);
+
+            await using (var stream = archivo.OpenReadStream(TamanoMaximoImagen))
+            await using (var destino = File.Create(rutaCompleta))
+            {
+                await stream.CopyToAsync(destino);
+            }
+
+            await GuardarImagenAdicional($"/uploads/productos/{nombreArchivo}");
+        }
+        catch (IOException)
+        {
+            imagenError = "No se pudo guardar la imagen. Intenta de nuevo.";
+        }
+        finally
+        {
+            subiendoImagenAdicional = false;
+        }
+    }
+
+    private async Task AgregarImagenPorUrl()
+    {
+        imagenError = null;
+
+        if (string.IsNullOrWhiteSpace(nuevaImagenUrl))
+        {
+            imagenError = "Pega una URL de imagen válida.";
+            return;
+        }
+
+        await GuardarImagenAdicional(nuevaImagenUrl);
+        nuevaImagenUrl = string.Empty;
+    }
+
+    private async Task GuardarImagenAdicional(string url)
+    {
+        var imagen = new ProductoImagen
+        {
+            Url = url,
+            Orden = producto.ImagenesAdicionales.Count,
+            ProductoId = producto.Id
+        };
+
+        Db.ProductoImagenes.Add(imagen);
+        await Db.SaveChangesAsync();
+
+        producto.ImagenesAdicionales.Add(imagen);
+    }
+
+    private async Task EliminarImagenConfirmada()
+    {
+        if (imagenAEliminar is null) return;
+
+        Db.ProductoImagenes.Remove(imagenAEliminar);
+        await Db.SaveChangesAsync();
+
+        producto.ImagenesAdicionales.Remove(imagenAEliminar);
+        imagenAEliminar = null;
     }
 
     private async Task AgregarVariante()
