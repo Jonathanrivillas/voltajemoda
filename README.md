@@ -85,7 +85,7 @@ dotnet run
 - `dotnet ef database update` crea la base de datos `VoltajeModaDb` y aplica todas las migraciones existentes.
 - Al arrancar **en desarrollo local únicamente**, la app siembra automáticamente datos de prueba (categorías, productos con variantes, una oferta) y roles (`Cliente`, `Administrador`), incluyendo un usuario administrador de prueba:
   - **Email:** `admin@voltajemoda.com`
-  - **Contraseña:** `Admin123!`
+  - **Contraseña:** `Admin1234!`
   
   Este usuario **no existe en producción** (el seeding de datos demo y del admin de prueba está condicionado a `IsDevelopment()` en `Program.cs`). En producción, el primer administrador se asigna manualmente en la base de datos — ver la sección "Permisos" más abajo.
 
