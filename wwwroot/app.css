@@ -2,6 +2,108 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+:root {
+    --voltaje-coral: #EF6C57;
+    --voltaje-coral-dark: #D9553F;
+}
+
+/* Barra de promoción */
+.promo-bar {
+    background: #000;
+    color: #fff;
+    text-align: center;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    padding: 0.6rem 1rem;
+}
+
+/* Navbar principal */
+.voltaje-navbar {
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+}
+
+.voltaje-brand {
+    color: var(--voltaje-coral) !important;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.voltaje-nav-links .nav-link {
+    color: #1f1f1f;
+    font-weight: 500;
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+}
+
+.voltaje-nav-links .nav-link:hover,
+.voltaje-nav-links .nav-link.active {
+    color: var(--voltaje-coral);
+}
+
+.voltaje-search {
+    position: relative;
+    width: 220px;
+}
+
+.voltaje-search input {
+    border-radius: 999px;
+    padding-left: 2.25rem;
+    background: #f4f4f4;
+    border: 1px solid transparent;
+}
+
+.voltaje-search input:focus {
+    background: #fff;
+    border-color: var(--voltaje-coral);
+    box-shadow: none;
+}
+
+.voltaje-search svg {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    pointer-events: none;
+}
+
+.voltaje-icon-btn {
+    background: none;
+    border: none;
+    color: #1f1f1f;
+    padding: 0.4rem;
+    line-height: 0;
+}
+
+.voltaje-icon-btn:hover {
+    color: var(--voltaje-coral);
+}
+
+/* Hero de inicio a todo el ancho */
+.hero-full {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+    margin-bottom: 3rem;
+    overflow: hidden;
+}
+
+.hero-full img {
+    width: 100%;
+    height: min(70vh, 600px);
+    object-fit: cover;
+    display: block;
+}
+
+@media (max-width: 575.98px) {
+    .hero-full img {
+        height: 60vh;
+    }
+}
+
 a, .btn-link {
     color: #000;
 }

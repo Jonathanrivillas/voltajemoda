@@ -1,70 +1,96 @@
 @implements IDisposable
 
-@inject NavigationManager NavigationManager
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+@inject NavigationManager NavigationManager
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+<div class="promo-bar">Suscríbete y obtén el 15%DTO. en tu primera compra</div>
+
+<nav class="navbar navbar-expand-lg voltaje-navbar sticky-top">
     <div class="container-fluid px-4">
-        <a class="navbar-brand fw-bold" href="/">VOLTAJE MODA</a>
+        <a class="navbar-brand voltaje-brand" href="/">VOLTAJE</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu"
                 aria-controls="navbarMenu" aria-expanded="false" aria-label="Mostrar/ocultar menú">
             <span class="navbar-toggler-icon"></span>
         </button>
 
         <div class="collapse navbar-collapse" id="navbarMenu">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Inicio</NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="productos">Productos</NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="carrito">Carrito</NavLink>
-                </li>
-                <AuthorizeView Roles="Administrador">
-                    <Authorized>
-                        <li class="nav-item">
-                            <NavLink class="nav-link" href="admin/productos">Admin</NavLink>
-                        </li>
-                    </Authorized>
-                </AuthorizeView>
+            <ul class="navbar-nav mx-lg-auto mb-2 mb-lg-0 voltaje-nav-links">
+                @foreach (var categoria in categorias)
+                {
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="@($"productos?categoriaId={categoria.Id}")">@categoria.Nombre</NavLink>
+                    </li>
+                }
             </ul>
-            <ul class="navbar-nav">
-                <AuthorizeView>
-                    <Authorized>
-                        <li class="nav-item">
-                            <NavLink class="nav-link" href="mis-pedidos">Mis pedidos</NavLink>
-                        </li>
-                        <li class="nav-item">
-                            <NavLink class="nav-link" href="Account/Manage">@context.User.Identity?.Name</NavLink>
-                        </li>
-                        <li class="nav-item">
-                            <form action="Account/Logout" method="post">
-                                <AntiforgeryToken />
-                                <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                                <button type="submit" class="nav-link btn-logout">Salir</button>
-                            </form>
-                        </li>
-                    </Authorized>
-                    <NotAuthorized>
-                        <li class="nav-item">
-                            <NavLink class="nav-link" href="Account/Register">Registrarse</NavLink>
-                        </li>
-                        <li class="nav-item">
-                            <NavLink class="nav-link" href="Account/Login">Ingresar</NavLink>
-                        </li>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </ul>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <form action="/productos" method="get" class="voltaje-search">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.4" />
+                        <line x1="11.4" y1="11.4" x2="15" y2="15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                    </svg>
+                    <input type="search" name="buscar" class="form-control form-control-sm" placeholder="Buscar" aria-label="Buscar productos" />
+                </form>
+
+                <div class="dropdown">
+                    <button class="voltaje-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Cuenta">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.6" />
+                            <path d="M4.5 20c1.4-3.6 4.4-5.6 7.5-5.6s6.1 2 7.5 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                        </svg>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <AuthorizeView>
+                            <Authorized>
+                                <li><h6 class="dropdown-header">@context.User.Identity?.Name</h6></li>
+                                <li><NavLink class="dropdown-item" href="mis-pedidos">Mis pedidos</NavLink></li>
+                                <li><NavLink class="dropdown-item" href="Account/Manage">Mi cuenta</NavLink></li>
+                                <AuthorizeView Roles="Administrador" Context="adminContext">
+                                    <Authorized>
+                                        <li><NavLink class="dropdown-item" href="admin/productos">Admin</NavLink></li>
+                                    </Authorized>
+                                </AuthorizeView>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <form action="Account/Logout" method="post">
+                                        <AntiforgeryToken />
+                                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                                        <button type="submit" class="dropdown-item">Salir</button>
+                                    </form>
+                                </li>
+                            </Authorized>
+                            <NotAuthorized>
+                                <li><NavLink class="dropdown-item" href="Account/Login">Ingresar</NavLink></li>
+                                <li><NavLink class="dropdown-item" href="Account/Register">Registrarse</NavLink></li>
+                            </NotAuthorized>
+                        </AuthorizeView>
+                    </ul>
+                </div>
+
+                <a class="voltaje-icon-btn" href="carrito" aria-label="Carrito">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 8h12l-1 11.5a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 19.5L6 8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                        <path d="M9 8V6.5a3 3 0 0 1 6 0V8" stroke="currentColor" stroke-width="1.6" />
+                    </svg>
+                </a>
+            </div>
         </div>
     </div>
 </nav>
 
 @code {
     private string? currentUrl;
+    private List<Categoria> categorias = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        categorias = await db.Categorias.ToListAsync();
+
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
     }
