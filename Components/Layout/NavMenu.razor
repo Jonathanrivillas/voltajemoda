@@ -1,5 +1,7 @@
 @implements IDisposable
 
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
 @using VoltajeModa.Data
 @using VoltajeModa.Models
@@ -43,15 +45,36 @@
                             <path d="M4.5 20c1.4-3.6 4.4-5.6 7.5-5.6s6.1 2 7.5 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                         </svg>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
+                    <ul class="dropdown-menu dropdown-menu-end user-dropdown">
                         <AuthorizeView>
                             <Authorized>
-                                <li><h6 class="dropdown-header">@context.User.Identity?.Name</h6></li>
-                                <li><NavLink class="dropdown-item" href="mis-pedidos">Mis pedidos</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="Account/Manage">Mi cuenta</NavLink></li>
+                                <li class="user-dropdown-header">
+                                    <div class="account-avatar">@iniciales</div>
+                                    <div class="user-dropdown-info">
+                                        <div class="user-dropdown-name">@(nombre ?? context.User.Identity?.Name)</div>
+                                        <div class="user-dropdown-email">@correo</div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <NavLink class="dropdown-item user-dropdown-link" href="Account/Manage">
+                                        <IconoSvg Nombre="usuario" />
+                                        <span>Mi cuenta</span>
+                                    </NavLink>
+                                </li>
+                                <li>
+                                    <NavLink class="dropdown-item user-dropdown-link" href="mis-pedidos">
+                                        <IconoSvg Nombre="caja" />
+                                        <span>Mis pedidos</span>
+                                    </NavLink>
+                                </li>
                                 <AuthorizeView Roles="Administrador" Context="adminContext">
                                     <Authorized>
-                                        <li><NavLink class="dropdown-item" href="admin">Admin</NavLink></li>
+                                        <li>
+                                            <NavLink class="dropdown-item user-dropdown-link" href="admin">
+                                                <IconoSvg Nombre="panel" />
+                                                <span>Admin</span>
+                                            </NavLink>
+                                        </li>
                                     </Authorized>
                                 </AuthorizeView>
                                 <li><hr class="dropdown-divider" /></li>
@@ -59,13 +82,16 @@
                                     <form action="Account/Logout" method="post">
                                         <AntiforgeryToken />
                                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                                        <button type="submit" class="dropdown-item">Salir</button>
+                                        <button type="submit" class="dropdown-item user-dropdown-link user-dropdown-logout">
+                                            <IconoSvg Nombre="salir" />
+                                            <span>Salir</span>
+                                        </button>
                                     </form>
                                 </li>
                             </Authorized>
                             <NotAuthorized>
-                                <li><NavLink class="dropdown-item" href="Account/Login">Ingresar</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="Account/Register">Registrarse</NavLink></li>
+                                <li><NavLink class="dropdown-item user-dropdown-link" href="Account/Login">Ingresar</NavLink></li>
+                                <li><NavLink class="dropdown-item user-dropdown-link" href="Account/Register">Registrarse</NavLink></li>
                             </NotAuthorized>
                         </AuthorizeView>
                     </ul>
@@ -85,6 +111,12 @@
 @code {
     private string? currentUrl;
     private List<Categoria> categorias = new();
+    private string? nombre;
+    private string? correo;
+    private string iniciales = "?";
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,6 +125,22 @@
 
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
+
+        if (AuthenticationStateTask is not null)
+        {
+            var authState = await AuthenticationStateTask;
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var usuario = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+                if (usuario is not null)
+                {
+                    nombre = string.IsNullOrWhiteSpace(usuario.Nombre) ? null : usuario.Nombre;
+                    correo = usuario.Email;
+                    iniciales = AvatarUtils.CalcularIniciales(nombre ?? correo);
+                }
+            }
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)

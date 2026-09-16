@@ -10,21 +10,20 @@
 
 <div class="account-shell">
     <div class="account-header">
-        <span class="account-kicker">Voltaje Moda</span>
         <h1>Mi cuenta</h1>
         <p>Administra tu perfil, seguridad, direcciones de envío y pedidos en un solo lugar.</p>
     </div>
 
     <div class="account-grid">
         <aside class="account-sidebar">
-            <div class="account-user">
-                <div class="account-avatar">@iniciales</div>
-                <div class="account-user-info">
-                    <div class="account-user-name">@(nombre ?? "Tu cuenta")</div>
-                    <div class="account-user-email">@correo</div>
+            <div class="account-sidebar-card">
+                <div class="account-user">
+                    <div class="account-avatar">@iniciales</div>
+                    <div class="account-user-info">
+                        <div class="account-user-name">@(nombre ?? "Tu cuenta")</div>
+                        <div class="account-user-email">@correo</div>
+                    </div>
                 </div>
-            </div>
-            <div class="account-nav-card">
                 <ManageNavMenu />
             </div>
         </aside>
@@ -71,22 +70,6 @@
 
         nombre = string.IsNullOrWhiteSpace(user.Nombre) ? null : user.Nombre;
         correo = user.Email;
-        iniciales = CalcularIniciales(nombre ?? correo);
-    }
-
-    private static string CalcularIniciales(string? texto)
-    {
-        if (string.IsNullOrWhiteSpace(texto))
-        {
-            return "?";
-        }
-
-        var partes = texto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (partes.Length == 1)
-        {
-            return partes[0][..Math.Min(2, partes[0].Length)].ToUpperInvariant();
-        }
-
-        return $"{partes[0][0]}{partes[^1][0]}".ToUpperInvariant();
+        iniciales = AvatarUtils.CalcularIniciales(nombre ?? correo);
     }
 }

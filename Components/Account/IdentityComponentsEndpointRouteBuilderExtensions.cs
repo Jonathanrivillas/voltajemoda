@@ -101,8 +101,8 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
 
             var redirectUrl = UriHelper.BuildRelative(
                 context.Request.PathBase,
-                "/Account/Manage/ExternalLogins",
-                QueryString.Create("Action", ExternalLogins.LinkLoginCallbackAction));
+                "/Account/Manage/Seguridad",
+                QueryString.Create("Action", Seguridad.LinkLoginCallbackAction));
 
             var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl, signInManager.UserManager.GetUserId(context.User));
             return TypedResults.Challenge(properties, [provider]);
