@@ -1,10 +1,11 @@
-<p>
-    @Mensaje
+<div class="empty-state">
+    <IconoSvg Nombre="caja-vacia" Width="40" Height="40" CssClass="empty-state-icon" />
+    <p class="empty-state-message">@Mensaje</p>
     @if (EnlaceHref is not null)
     {
-        <a href="@EnlaceHref">@EnlaceTexto</a>
+        <a href="@EnlaceHref" class="btn btn-outline-dark btn-sm">@EnlaceTexto</a>
     }
-</p>
+</div>
 
 @code {
     [Parameter, EditorRequired]

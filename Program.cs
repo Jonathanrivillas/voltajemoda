@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using Azure.Communication.Email;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -10,6 +11,10 @@ using VoltajeModa.Components;
 using VoltajeModa.Components.Account;
 using VoltajeModa.Data;
 using VoltajeModa.Services;
+
+var culturaPorDefecto = new CultureInfo("es-CO");
+CultureInfo.DefaultThreadCurrentCulture = culturaPorDefecto;
+CultureInfo.DefaultThreadCurrentUICulture = culturaPorDefecto;
 
 var builder = WebApplication.CreateBuilder(args);
 

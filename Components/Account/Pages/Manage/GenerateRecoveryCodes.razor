@@ -15,25 +15,31 @@
 }
 else
 {
-    <h3>Generar códigos de recuperación de autenticación en dos pasos (2FA)</h3>
-    <div class="alert alert-warning" role="alert">
-        <p>
-            <span class="glyphicon glyphicon-warning-sign"></span>
-            <strong>Guarda estos códigos en un lugar seguro.</strong>
-        </p>
-        <p>
-            Si pierdes tu dispositivo y no tienes los códigos de recuperación, perderás el acceso a tu cuenta.
-        </p>
-        <p>
-            Generar nuevos códigos de recuperación no cambia las claves usadas en tu aplicación autenticadora. Si quieres cambiar
-            esa clave, deberías <a href="Account/Manage/ResetAuthenticator">restablecer tus claves de autenticación.</a>
-        </p>
-    </div>
-    <div>
-        <form @formname="generate-recovery-codes" @onsubmit="OnSubmitAsync" method="post">
-            <AntiforgeryToken />
-            <button class="btn btn-danger" type="submit">Generar códigos de recuperación</button>
-        </form>
+    <div class="account-card">
+        <div class="account-card-header">
+            <div class="account-card-icon"><IconoSvg Nombre="llave" Width="20" Height="20" /></div>
+            <div>
+                <h2 class="account-card-title">Generar códigos de recuperación de autenticación en dos pasos (2FA)</h2>
+            </div>
+        </div>
+        <div class="account-card-body">
+            <div class="alert alert-warning" role="alert">
+                <p>
+                    <strong>Guarda estos códigos en un lugar seguro.</strong>
+                </p>
+                <p>
+                    Si pierdes tu dispositivo y no tienes los códigos de recuperación, perderás el acceso a tu cuenta.
+                </p>
+                <p>
+                    Generar nuevos códigos de recuperación no cambia las claves usadas en tu aplicación autenticadora. Si quieres cambiar
+                    esa clave, deberías <a href="Account/Manage/ResetAuthenticator">restablecer tus claves de autenticación.</a>
+                </p>
+            </div>
+            <form @formname="generate-recovery-codes" @onsubmit="OnSubmitAsync" method="post">
+                <AntiforgeryToken />
+                <button class="btn btn-danger" type="submit">Generar códigos de recuperación</button>
+            </form>
+        </div>
     </div>
 }
 

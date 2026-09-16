@@ -20,47 +20,55 @@
 }
 else
 {
-    <StatusMessage Message="@message" />
-    <h3>Configurar aplicación autenticadora</h3>
-    <div>
-        <p>Para usar una aplicación autenticadora, sigue estos pasos:</p>
-        <ol class="list">
-            <li>
-                <p>
-                    Descarga una aplicación autenticadora de dos factores como Microsoft Authenticator para
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> y
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a>, o
-                    Google Authenticator para
-                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> y
-                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
-                </p>
-            </li>
-            <li>
-                <p>Escanea el código QR o ingresa esta clave <kbd>@sharedKey</kbd> en tu aplicación autenticadora. Los espacios y las mayúsculas/minúsculas no importan.</p>
-                <div class="alert alert-info">Aprende cómo <a href="https://go.microsoft.com/fwlink/?Linkid=852423">habilitar la generación de códigos QR</a>.</div>
-                <div></div>
-                <div data-url="@authenticatorUri"></div>
-            </li>
-            <li>
-                <p>
-                    Una vez que hayas escaneado el código QR o ingresado la clave, tu aplicación autenticadora te dará
-                    un código único. Ingresa el código en el cuadro de confirmación.
-                </p>
-                <div class="row">
-                    <div class="col-xl-6">
-                        <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
-                            <DataAnnotationsValidator />
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="Input.Code" id="Input.Code" class="form-control" autocomplete="off" placeholder="Ingresa el código" />
-                                <label for="Input.Code" class="control-label form-label">Código de verificación</label>
-                                <ValidationMessage For="() => Input.Code" class="text-danger" />
-                            </div>
-                            <button type="submit" class="w-100 btn btn-lg btn-primary">Verificar</button>
-                        </EditForm>
+    <div class="account-card">
+        <div class="account-card-header">
+            <div class="account-card-icon"><IconoSvg Nombre="escudo" Width="20" Height="20" /></div>
+            <div>
+                <h2 class="account-card-title">Configurar aplicación autenticadora</h2>
+                <p class="account-card-subtitle">Vincula una app autenticadora para generar tus códigos 2FA.</p>
+            </div>
+        </div>
+        <div class="account-card-body">
+            <StatusMessage Message="@message" />
+            <p>Para usar una aplicación autenticadora, sigue estos pasos:</p>
+            <ol class="list">
+                <li>
+                    <p>
+                        Descarga una aplicación autenticadora de dos factores como Microsoft Authenticator para
+                        <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> y
+                        <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a>, o
+                        Google Authenticator para
+                        <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> y
+                        <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
+                    </p>
+                </li>
+                <li>
+                    <p>Escanea el código QR o ingresa esta clave <kbd>@sharedKey</kbd> en tu aplicación autenticadora. Los espacios y las mayúsculas/minúsculas no importan.</p>
+                    <div class="alert alert-info">Aprende cómo <a href="https://go.microsoft.com/fwlink/?Linkid=852423">habilitar la generación de códigos QR</a>.</div>
+                    <div></div>
+                    <div data-url="@authenticatorUri"></div>
+                </li>
+                <li>
+                    <p>
+                        Una vez que hayas escaneado el código QR o ingresado la clave, tu aplicación autenticadora te dará
+                        un código único. Ingresa el código en el cuadro de confirmación.
+                    </p>
+                    <div class="row">
+                        <div class="col-xl-6">
+                            <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
+                                <DataAnnotationsValidator />
+                                <div class="form-floating mb-3">
+                                    <InputText @bind-Value="Input.Code" id="Input.Code" class="form-control" autocomplete="off" placeholder=" " />
+                                    <label for="Input.Code" class="control-label form-label">Código de verificación</label>
+                                    <ValidationMessage For="() => Input.Code" class="text-danger" />
+                                </div>
+                                <button type="submit" class="w-100 btn btn-lg btn-primary">Verificar</button>
+                            </EditForm>
+                        </div>
                     </div>
-                </div>
-            </li>
-        </ol>
+                </li>
+            </ol>
+        </div>
     </div>
 }
 

@@ -8,26 +8,32 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
-    <DataAnnotationsValidator />
-    @if (passkey?.Name is { } name)
-    {
-        <h4>Ingresa un nuevo nombre para tu llave de acceso "@name"</h4>
-    }
-    else
-    {
-        <h4>Ingresa un nombre para tu llave de acceso</h4>
-    }
-    <hr />
-    <div class="form-floating mb-3">
-        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="Mi llave de acceso" />
-        <label for="Input.Name" class="form-label">Nombre de la llave de acceso</label>
-        <ValidationMessage For="() => Input.Name" class="text-danger" />
+<div class="account-card">
+    <div class="account-card-header">
+        <div class="account-card-icon"><IconoSvg Nombre="llave" Width="20" Height="20" /></div>
+        <div>
+            @if (passkey?.Name is { } name)
+            {
+                <h2 class="account-card-title">Renombrar "@name"</h2>
+            }
+            else
+            {
+                <h2 class="account-card-title">Nombra tu llave de acceso</h2>
+            }
+        </div>
     </div>
-    <div>
-        <button type="submit" class="w-100 btn btn-lg btn-primary">Continuar</button>
+    <div class="account-card-body">
+        <EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
+            <DataAnnotationsValidator />
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder=" " />
+                <label for="Input.Name" class="form-label">Nombre de la llave de acceso</label>
+                <ValidationMessage For="() => Input.Name" class="text-danger" />
+            </div>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Continuar</button>
+        </EditForm>
     </div>
-</EditForm>
+</div>
 
 @code {
     private ApplicationUser? user;
