@@ -62,18 +62,64 @@ else
 
     @if (usuarioId is not null)
     {
-        @if (direcciones.Count == 0)
+        @if (direcciones.Count > 0 && !mostrarFormularioDireccion)
         {
-            <EstadoVacio Mensaje="No tienes direcciones guardadas." EnlaceTexto="Agrega una dirección antes de continuar" EnlaceHref="/Account/Manage/Direcciones" />
+            <select class="form-select mb-2" style="max-width: 400px;" @bind="selectedDireccionId">
+                @foreach (var direccion in direcciones)
+                {
+                    <option value="@direccion.Id">@direccion.Etiqueta: @direccion.Calle, @direccion.Ciudad, @direccion.CodigoPostal</option>
+                }
+            </select>
+            <button type="button" class="btn btn-link p-0 m-3" @onclick="() => mostrarFormularioDireccion = true">+ Agregar una nueva dirección</button>
         }
         else
         {
-            <select class="form-select mb-3" style="max-width: 400px;" @bind="selectedDireccionId">
-                @foreach (var direccion in direcciones)
-                {
-                    <option value="@direccion.Id">@direccion.Calle, @direccion.Ciudad, @direccion.CodigoPostal</option>
-                }
-            </select>
+            <div class="account-card mb-3" style="max-width: 540px;">
+                <div class="account-card-header">
+                    <div class="account-card-icon"><IconoSvg Nombre="ubicacion" Width="20" Height="20" /></div>
+                    <div>
+                        <h2 class="account-card-title h6 mb-0">Nueva dirección de envío</h2>
+                        <p class="account-card-subtitle">Se guardará en tu cuenta para tus próximas compras.</p>
+                    </div>
+                </div>
+                <div class="account-card-body">
+                    @if (mensajeDireccion is not null)
+                    {
+                        <div class="alert alert-danger py-2">@mensajeDireccion</div>
+                    }
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <select class="form-select" @bind="nuevaDireccionUsuario.Etiqueta">
+                                <option value="Casa">Casa</option>
+                                <option value="Trabajo">Trabajo</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <input class="form-control" placeholder="Nombre de quien recibe" @bind="nuevaDireccionUsuario.NombreDestinatario" />
+                        </div>
+                        <div class="col-md-6">
+                            <input class="form-control" placeholder="Calle" @bind="nuevaDireccionUsuario.Calle" />
+                        </div>
+                        <div class="col-md-3">
+                            <input class="form-control" placeholder="Ciudad" @bind="nuevaDireccionUsuario.Ciudad" />
+                        </div>
+                        <div class="col-md-3">
+                            <input class="form-control" placeholder="Código postal" @bind="nuevaDireccionUsuario.CodigoPostal" />
+                        </div>
+                        <div class="col-md-6">
+                            <input class="form-control" placeholder="Teléfono de contacto" @bind="nuevaDireccionUsuario.Telefono" />
+                        </div>
+                        <div class="col-12 d-flex align-items-center gap-2 mt-1">
+                            <button type="button" class="btn btn-dark btn-sm" @onclick="GuardarDireccionUsuarioAsync">Guardar dirección</button>
+                            @if (direcciones.Count > 0)
+                            {
+                                <button type="button" class="btn btn-link btn-sm" @onclick="() => mostrarFormularioDireccion = false">Cancelar</button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
     }
     else
@@ -107,6 +153,9 @@ else
     private List<Direccion> direcciones = new();
     private int? selectedDireccionId;
     private Direccion nuevaDireccion = new();
+    private Direccion nuevaDireccionUsuario = new();
+    private bool mostrarFormularioDireccion;
+    private string? mensajeDireccion;
     private decimal total;
     private string? error;
 
@@ -125,7 +174,8 @@ else
             if (usuarioId is not null)
             {
                 direcciones = await Db.Direcciones.Where(d => d.UsuarioId == usuarioId).ToListAsync();
-                selectedDireccionId = direcciones.FirstOrDefault()?.Id;
+                selectedDireccionId = direcciones.FirstOrDefault(d => d.EsPredeterminada)?.Id ?? direcciones.FirstOrDefault()?.Id;
+                mostrarFormularioDireccion = direcciones.Count == 0;
             }
             else
             {
@@ -147,6 +197,30 @@ else
             .ToListAsync();
 
         total = items.Sum(i => i.ProductoVariante!.Producto!.PrecioEfectivo * i.Cantidad);
+    }
+
+    private async Task GuardarDireccionUsuarioAsync()
+    {
+        mensajeDireccion = null;
+
+        if (string.IsNullOrWhiteSpace(nuevaDireccionUsuario.Calle) ||
+            string.IsNullOrWhiteSpace(nuevaDireccionUsuario.Ciudad) ||
+            string.IsNullOrWhiteSpace(nuevaDireccionUsuario.CodigoPostal))
+        {
+            mensajeDireccion = "Completa calle, ciudad y código postal.";
+            return;
+        }
+
+        nuevaDireccionUsuario.UsuarioId = usuarioId;
+        nuevaDireccionUsuario.EsPredeterminada = direcciones.Count == 0;
+
+        Db.Direcciones.Add(nuevaDireccionUsuario);
+        await Db.SaveChangesAsync();
+
+        direcciones.Add(nuevaDireccionUsuario);
+        selectedDireccionId = nuevaDireccionUsuario.Id;
+        mostrarFormularioDireccion = false;
+        nuevaDireccionUsuario = new();
     }
 
     private async Task ConfirmarPedido()
@@ -171,9 +245,9 @@ else
 
         if (usuarioId is not null)
         {
-            if (selectedDireccionId is null)
+            if (selectedDireccionId is null || mostrarFormularioDireccion)
             {
-                error = "Selecciona una dirección de envío.";
+                error = "Guarda o selecciona una dirección de envío antes de continuar.";
                 return;
             }
 
