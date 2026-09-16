@@ -70,6 +70,7 @@ else
         categorias = await Db.Categorias.ToListAsync();
         productos = await Db.Productos
             .Include(p => p.Categoria)
+            .Include(p => p.ImagenesAdicionales)
             .ToListAsync();
     }
 }
