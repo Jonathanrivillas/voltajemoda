@@ -13,7 +13,7 @@
 <div class="admin-page-header">
     <div>
         <h1>@(Id is null ? "Nuevo producto" : "Editar producto")</h1>
-        <p>@(Id is null ? "Completa los datos para agregarlo al catálogo." : "Modifica los datos y variantes del producto.")</p>
+        <p>@(Id is null ? "Completa los datos generales y guarda: después vas a poder agregar variantes e imágenes adicionales." : "Modifica los datos y variantes del producto.")</p>
     </div>
     <a href="/admin/productos" class="btn btn-outline-dark"><i class="bi bi-arrow-left"></i> Volver</a>
 </div>
@@ -24,20 +24,29 @@
 }
 else
 {
+    @if (Creado)
+    {
+        <div class="alert alert-success">Producto creado correctamente. Ahora puedes agregar sus variantes e imágenes adicionales más abajo.</div>
+    }
+
+    @if (Id is null && categorias.Count == 0)
+    {
+        <div class="alert alert-warning">
+            Todavía no hay categorías creadas. <a href="/admin/categorias">Crea al menos una categoría</a> antes de agregar productos.
+        </div>
+    }
+    else
+    {
     <EditForm Model="producto" OnValidSubmit="Guardar">
         <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" />
 
-        <div class="row g-3">
-            <div class="col-lg-7">
-                <AdminCard Titulo="Datos generales">
+        <div class="admin-grid-2">
+            <div>
+                <AdminCard Titulo="1. Información básica">
                     <div class="mb-3">
                         <label class="form-label">Nombre</label>
                         <InputText class="form-control" @bind-Value="producto.Nombre" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Descripción</label>
-                        <InputTextArea class="form-control" rows="4" @bind-Value="producto.Descripcion" />
+                        <ValidationMessage For="() => producto.Nombre" class="text-danger small" />
                     </div>
                     <div class="mb-0">
                         <label class="form-label">Categoría</label>
@@ -48,26 +57,40 @@ else
                             }
                         </InputSelect>
                     </div>
-                </AdminCard>
-            </div>
-
-            <div class="col-lg-5">
-                <AdminCard Titulo="Precio y oferta">
-                    <div class="mb-3">
-                        <label class="form-label">Precio</label>
-                        <InputNumber class="form-control" @bind-Value="producto.Precio" />
+                    <div class="mb-0 mt-3">
+                        <label class="form-label">Descripción</label>
+                        <InputTextArea class="form-control" rows="4" @bind-Value="producto.Descripcion" />
                     </div>
-                    <div class="form-check mb-3">
+                </AdminCard>
+
+                <AdminCard Titulo="2. Precio">
+                    <div class="mb-0">
+                        <label class="form-label">Precio</label>
+                        <InputNumber class="form-control" @bind-Value="producto.Precio" min="0" step="0.01" />
+                        <ValidationMessage For="() => producto.Precio" class="text-danger small" />
+                    </div>
+                    <hr class="my-3" />
+                    <div class="form-check mb-0">
                         <InputCheckbox class="form-check-input" id="enOferta" @bind-Value="producto.EnOferta" />
-                        <label class="form-check-label" for="enOferta">En oferta</label>
+                        <label class="form-check-label" for="enOferta">Poner en oferta</label>
                     </div>
                     @if (producto.EnOferta)
                     {
-                        <div class="mb-3">
+                        <div class="mt-3">
                             <label class="form-label">Precio de oferta</label>
-                            <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" />
+                            <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" min="0" step="0.01" />
+                            <ValidationMessage For="() => producto.PrecioOferta" class="text-danger small" />
+                            @if (producto.Precio > 0 && producto.PrecioOferta is > 0 && producto.PrecioOferta < producto.Precio)
+                            {
+                                <div class="text-muted small mt-1">
+                                    El catálogo va a mostrar un descuento del @(Math.Round((1 - (producto.PrecioOferta.Value / producto.Precio)) * 100))%.
+                                </div>
+                            }
                         </div>
                     }
+                </AdminCard>
+
+                <AdminCard Titulo="3. Visibilidad en el catálogo">
                     <div class="form-check mb-3">
                         <InputCheckbox class="form-check-input" id="destacado" @bind-Value="producto.Destacado" />
                         <label class="form-check-label" for="destacado">Producto destacado (aparece en "Ofertas destacadas" del inicio)</label>
@@ -77,9 +100,19 @@ else
                         <label class="form-check-label" for="esNuevo">Marcar como "Nuevo" en el catálogo</label>
                     </div>
                 </AdminCard>
+            </div>
 
-                <AdminCard Titulo="Imagen">
-                    <div class="mb-3">
+            <div>
+                <AdminCard Titulo="Imagen principal">
+                    @if (!string.IsNullOrWhiteSpace(producto.ImagenUrl))
+                    {
+                        <img src="@producto.ImagenUrl" alt="Vista previa" class="admin-image-preview" />
+                    }
+                    else
+                    {
+                        <div class="admin-image-preview admin-image-preview-vacia">Sin imagen todavía</div>
+                    }
+                    <div class="mb-3 mt-3">
                         <label class="form-label">Subir desde el equipo</label>
                         <InputFile class="form-control" OnChange="SubirImagen" accept="image/png,image/jpeg,image/webp,image/gif" disabled="@subiendoImagen" />
                         @if (subiendoImagen)
@@ -95,20 +128,28 @@ else
                         <label class="form-label">O pegar una URL externa</label>
                         <InputText class="form-control" @bind-Value="producto.ImagenUrl" />
                     </div>
-                    @if (!string.IsNullOrWhiteSpace(producto.ImagenUrl))
-                    {
-                        <img src="@producto.ImagenUrl" alt="Vista previa" class="admin-image-preview" />
-                    }
                 </AdminCard>
             </div>
         </div>
 
-        <button type="submit" class="btn btn-dark mt-2">Guardar</button>
+        <div class="admin-form-actions">
+            <button type="submit" class="btn btn-dark">@(Id is null ? "Guardar y continuar" : "Guardar cambios")</button>
+            @if (Id is null)
+            {
+                <span class="text-muted small">Al guardar vas a poder agregar variantes (talla/color/stock) e imágenes adicionales.</span>
+            }
+        </div>
     </EditForm>
 
-    @if (Id is not null)
+    @if (Id is null)
     {
-        <AdminCard Titulo="Variantes" >
+        <AdminCard Titulo="4. Variantes e imágenes adicionales">
+            <EstadoVacio Mensaje="Guarda la información de arriba para desbloquear esta sección." />
+        </AdminCard>
+    }
+    else
+    {
+        <AdminCard Titulo="4. Variantes" >
             @if (varianteError is not null)
             {
                 <div class="alert alert-danger">@varianteError</div>
@@ -149,26 +190,66 @@ else
                 </div>
             }
 
-            <EditForm Model="nuevaVariante" OnValidSubmit="AgregarVariante" class="row g-2 align-items-end">
+            <hr class="my-3" />
+
+            <p class="fw-semibold mb-2">Agregar variantes nuevas</p>
+            <p class="text-muted small">Selecciona las tallas y colores que quieras combinar: se va a crear una variante por cada combinación.</p>
+
+            @if (generarError is not null)
+            {
+                <div class="alert alert-danger">@generarError</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Tallas</label>
+                <div class="admin-chip-group">
+                    @foreach (var talla in tallasDisponibles)
+                    {
+                        <button type="button" class="admin-chip @(tallasSeleccionadas.Contains(talla) ? "admin-chip--activo" : "")" @onclick="() => ToggleTalla(talla)">
+                            @talla
+                        </button>
+                    }
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <input class="form-control form-control-sm" style="max-width: 180px;" placeholder="Otra talla (ej. 38)" @bind="nuevaTallaPersonalizada" @bind:event="oninput" @onkeydown="OnTallaKeyDown" />
+                    <button type="button" class="btn btn-sm btn-outline-dark" @onclick="AgregarTallaPersonalizada">Agregar talla</button>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Colores</label>
+                @if (coloresSeleccionados.Count > 0)
+                {
+                    <div class="admin-chip-group mb-2">
+                        @foreach (var color in coloresSeleccionados)
+                        {
+                            <span class="admin-chip admin-chip--activo">
+                                @color
+                                <button type="button" class="admin-chip__quitar" @onclick="() => QuitarColor(color)" aria-label="Quitar @color">&times;</button>
+                            </span>
+                        }
+                    </div>
+                }
+                <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" style="max-width: 200px;" placeholder="Ej. Negro" @bind="nuevoColor" @bind:event="oninput" @onkeydown="OnColorKeyDown" />
+                    <button type="button" class="btn btn-sm btn-outline-dark" @onclick="AgregarColor">Agregar color</button>
+                </div>
+            </div>
+
+            <div class="row g-2 align-items-end">
                 <div class="col-auto">
-                    <label class="form-label">Talla</label>
-                    <InputText class="form-control" @bind-Value="nuevaVariante.Talla" />
+                    <label class="form-label">Stock inicial (para todas)</label>
+                    <InputNumber class="form-control" style="width: 120px;" @bind-Value="stockInicial" min="0" />
                 </div>
                 <div class="col-auto">
-                    <label class="form-label">Color</label>
-                    <InputText class="form-control" @bind-Value="nuevaVariante.Color" />
+                    <button type="button" class="btn btn-dark" disabled="@(tallasSeleccionadas.Count == 0 || coloresSeleccionados.Count == 0)" @onclick="GenerarVariantes">
+                        Generar @(tallasSeleccionadas.Count * coloresSeleccionados.Count) variante(s)
+                    </button>
                 </div>
-                <div class="col-auto">
-                    <label class="form-label">Stock</label>
-                    <InputNumber class="form-control" @bind-Value="nuevaVariante.Stock" />
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-outline-dark">Agregar variante</button>
-                </div>
-            </EditForm>
+            </div>
         </AdminCard>
 
-        <AdminCard Titulo="Imágenes adicionales">
+        <AdminCard Titulo="5. Imágenes adicionales">
             <p class="text-muted small">La imagen principal se configura arriba, en "Imagen". Acá podés agregar fotos extra para que el cliente las recorra en el catálogo.</p>
 
             @if (imagenError is not null)
@@ -215,6 +296,7 @@ else
             </div>
         </AdminCard>
     }
+    }
 }
 
 <ConfirmDialog Id="confirmarEliminarImagen" Titulo="Eliminar imagen"
@@ -229,12 +311,23 @@ else
     [Parameter]
     public int? Id { get; set; }
 
+    [SupplyParameterFromQuery(Name = "creado")]
+    public bool Creado { get; set; }
+
     private bool cargado;
     private Producto producto = new();
     private List<Categoria> categorias = new();
-    private ProductoVariante nuevaVariante = new();
     private ProductoVariante? varianteAEliminar;
     private string? varianteError;
+
+    private static readonly string[] TallasPreset = { "XS", "S", "M", "L", "XL", "XXL" };
+    private List<string> tallasDisponibles = TallasPreset.ToList();
+    private HashSet<string> tallasSeleccionadas = new();
+    private string nuevaTallaPersonalizada = string.Empty;
+    private List<string> coloresSeleccionados = new();
+    private string nuevoColor = string.Empty;
+    private int stockInicial;
+    private string? generarError;
 
     private bool subiendoImagen;
     private string? errorImagen;
@@ -276,7 +369,7 @@ else
         {
             Db.Productos.Add(producto);
             await Db.SaveChangesAsync();
-            NavigationManager.NavigateTo($"/admin/productos/{producto.Id}/editar");
+            NavigationManager.NavigateTo($"/admin/productos/{producto.Id}/editar?creado=true");
         }
         else
         {
@@ -399,8 +492,6 @@ else
 
         Db.ProductoImagenes.Add(imagen);
         await Db.SaveChangesAsync();
-
-        producto.ImagenesAdicionales.Add(imagen);
     }
 
     private async Task EliminarImagenConfirmada()
@@ -414,22 +505,106 @@ else
         imagenAEliminar = null;
     }
 
-    private async Task AgregarVariante()
+    private void ToggleTalla(string talla)
     {
-        varianteError = null;
-
-        if (string.IsNullOrWhiteSpace(nuevaVariante.Talla) || string.IsNullOrWhiteSpace(nuevaVariante.Color))
+        if (!tallasSeleccionadas.Add(talla))
         {
-            varianteError = "Completa talla y color.";
+            tallasSeleccionadas.Remove(talla);
+        }
+    }
+
+    private void AgregarTallaPersonalizada()
+    {
+        var talla = nuevaTallaPersonalizada.Trim();
+        if (string.IsNullOrWhiteSpace(talla))
+        {
             return;
         }
 
-        nuevaVariante.ProductoId = producto.Id;
-        Db.ProductoVariantes.Add(nuevaVariante);
+        if (!tallasDisponibles.Contains(talla, StringComparer.OrdinalIgnoreCase))
+        {
+            tallasDisponibles.Add(talla);
+        }
+
+        tallasSeleccionadas.Add(talla);
+        nuevaTallaPersonalizada = string.Empty;
+    }
+
+    private void OnTallaKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AgregarTallaPersonalizada();
+        }
+    }
+
+    private void AgregarColor()
+    {
+        var color = nuevoColor.Trim();
+        if (string.IsNullOrWhiteSpace(color))
+        {
+            return;
+        }
+
+        if (!coloresSeleccionados.Contains(color, StringComparer.OrdinalIgnoreCase))
+        {
+            coloresSeleccionados.Add(color);
+        }
+
+        nuevoColor = string.Empty;
+    }
+
+    private void OnColorKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AgregarColor();
+        }
+    }
+
+    private void QuitarColor(string color)
+    {
+        coloresSeleccionados.Remove(color);
+    }
+
+    private async Task GenerarVariantes()
+    {
+        varianteError = null;
+        generarError = null;
+
+        if (tallasSeleccionadas.Count == 0 || coloresSeleccionados.Count == 0)
+        {
+            generarError = "Selecciona al menos una talla y un color.";
+            return;
+        }
+
+        var nuevas = new List<ProductoVariante>();
+        foreach (var talla in tallasSeleccionadas)
+        {
+            foreach (var color in coloresSeleccionados)
+            {
+                var yaExiste = producto.Variantes.Any(v =>
+                    string.Equals(v.Talla, talla, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(v.Color, color, StringComparison.OrdinalIgnoreCase));
+
+                if (!yaExiste)
+                {
+                    nuevas.Add(new ProductoVariante { Talla = talla, Color = color, Stock = stockInicial, ProductoId = producto.Id });
+                }
+            }
+        }
+
+        if (nuevas.Count == 0)
+        {
+            generarError = "Esas combinaciones de talla y color ya existen para este producto.";
+            return;
+        }
+
+        Db.ProductoVariantes.AddRange(nuevas);
         await Db.SaveChangesAsync();
 
-        producto.Variantes.Add(nuevaVariante);
-        nuevaVariante = new();
+        tallasSeleccionadas.Clear();
+        coloresSeleccionados.Clear();
     }
 
     private async Task EliminarVarianteConfirmada()

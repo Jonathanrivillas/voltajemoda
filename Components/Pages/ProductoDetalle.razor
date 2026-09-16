@@ -20,55 +20,127 @@
 }
 else
 {
-    <div class="row">
-        <div class="col-md-5">
-            <img src="@producto.ImagenUrl" class="img-fluid" alt="@producto.Nombre" />
+    <a href="/productos" class="producto-detalle-volver">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="m15 18-6-6 6-6" /></svg>
+        Volver
+    </a>
+
+    <div class="producto-detalle-layout">
+        <div class="producto-detalle-galeria">
+            <div class="producto-detalle-media">
+                @if (descuentoPorcentaje > 0)
+                {
+                    <span class="producto-badge producto-badge-descuento">@descuentoPorcentaje%</span>
+                }
+                <img src="@imagenSeleccionada" alt="@producto.Nombre" />
+
+                @if (imagenes.Count > 1)
+                {
+                    <button type="button" class="producto-detalle-nav producto-detalle-nav-prev" @onclick="ImagenAnterior" aria-label="Imagen anterior">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="m15 18-6-6 6-6" /></svg>
+                    </button>
+                    <button type="button" class="producto-detalle-nav producto-detalle-nav-next" @onclick="ImagenSiguiente" aria-label="Imagen siguiente">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="m9 18 6-6-6-6" /></svg>
+                    </button>
+                }
+            </div>
+            @if (imagenes.Count > 1)
+            {
+                <div class="producto-detalle-thumbs">
+                    @for (var i = 0; i < imagenes.Count; i++)
+                    {
+                        var indice = i;
+                        <button type="button" class="producto-detalle-thumb @(indice == imagenIndex ? "activa" : "")" @onclick="() => imagenIndex = indice">
+                            <img src="@imagenes[indice]" alt="@producto.Nombre" />
+                        </button>
+                    }
+                </div>
+            }
         </div>
-        <div class="col-md-7">
-            <h1>@producto.Nombre</h1>
-            <p>@producto.Descripcion</p>
-            <p>
+        <div class="producto-detalle-info">
+            @if (producto.Categoria is not null)
+            {
+                <p class="producto-detalle-categoria">@producto.Categoria.Nombre.ToUpperInvariant()</p>
+            }
+            <h1 class="producto-detalle-nombre">@producto.Nombre</h1>
+
+            <p class="producto-detalle-precio">
                 @if (producto.EnOferta && producto.PrecioOferta is not null)
                 {
-                    <span class="badge bg-dark me-2">Oferta</span>
-                    <span class="text-decoration-line-through text-muted me-2">@producto.Precio.ToString("C")</span>
-                    <strong>@producto.PrecioEfectivo.ToString("C")</strong>
+                    <span class="producto-precio-oferta">@producto.PrecioEfectivo.ToString("C")</span>
+                    <span class="producto-precio-original">@producto.Precio.ToString("C")</span>
                 }
                 else
                 {
-                    <strong>@producto.Precio.ToString("C")</strong>
+                    <span class="producto-precio-normal">@producto.Precio.ToString("C")</span>
                 }
             </p>
-            <p>Categoría: @producto.Categoria?.Nombre</p>
 
             @if (mensaje is not null)
             {
                 <div class="alert alert-success">@mensaje</div>
             }
 
-            <div class="row g-2 align-items-end mb-3">
-                <div class="col-auto">
-                    <label for="variante" class="form-label">Talla / Color</label>
-                    <select id="variante" class="form-select" @bind="selectedVarianteId">
-                        <option value="">Selecciona una opción</option>
-                        @foreach (var variante in producto.Variantes)
+            @if (tallasDisponibles.Count > 0)
+            {
+                <div class="producto-detalle-selector">
+                    <p class="producto-detalle-selector-label">Talla</p>
+                    <div class="producto-detalle-tallas">
+                        @foreach (var talla in tallasDisponibles)
                         {
-                            <option value="@variante.Id" disabled="@(variante.Stock == 0)">
-                                @variante.Talla / @variante.Color (@(variante.Stock == 0 ? "Sin stock" : $"Stock: {variante.Stock}"))
-                            </option>
+                            var sinStock = EsTallaSinStock(talla);
+                            <button type="button"
+                                    class="producto-detalle-talla @(talla == tallaSeleccionada ? "activo" : "") @(sinStock ? "agotado" : "")"
+                                    disabled="@sinStock"
+                                    @onclick="() => SeleccionarTalla(talla)">
+                                @talla
+                            </button>
                         }
-                    </select>
+                    </div>
                 </div>
-                <div class="col-auto">
-                    <label for="cantidad" class="form-label">Cantidad</label>
-                    <input id="cantidad" type="number" class="form-control" style="width: 100px;" min="1" @bind="cantidad" />
+            }
+
+            @if (coloresDisponibles.Count > 0)
+            {
+                <div class="producto-detalle-selector">
+                    <p class="producto-detalle-selector-label">Color: <strong>@colorSeleccionado</strong></p>
+                    <div class="producto-detalle-colores">
+                        @foreach (var color in coloresDisponibles)
+                        {
+                            var hex = ObtenerHexColor(color);
+                            var sinStock = EsColorSinStock(color);
+                            <button type="button"
+                                    class="producto-detalle-color @(color == colorSeleccionado ? "activo" : "") @(hex is null ? "producto-detalle-color--texto" : "") @(sinStock ? "agotado" : "")"
+                                    style="@(hex is not null ? $"background-color:{hex};" : "")"
+                                    title="@color"
+                                    aria-label="@color"
+                                    disabled="@sinStock"
+                                    @onclick="() => colorSeleccionado = color">
+                                @(hex is null ? color : "")
+                            </button>
+                        }
+                    </div>
                 </div>
-                <div class="col-auto">
-                    <button class="btn btn-dark" @onclick="AgregarAlCarrito" disabled="@(selectedVarianteId is null)">
-                        Agregar al carrito
-                    </button>
+            }
+
+            <div class="producto-detalle-accion">
+                <div class="producto-detalle-stepper">
+                    <button type="button" @onclick="DecrementarCantidad" aria-label="Reducir cantidad">&minus;</button>
+                    <span>@cantidad</span>
+                    <button type="button" @onclick="IncrementarCantidad" aria-label="Aumentar cantidad">+</button>
                 </div>
+                <button class="btn btn-dark producto-card-btn producto-detalle-btn" @onclick="AgregarAlCarrito" disabled="@(varianteSeleccionada is null)">
+                    Agregar al carrito
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+                        <path d="m2.05 2.05 1.099-.028a1 1 0 0 1 1.008.815l2.69 14.347A1 1 0 0 0 7.83 18H18" />
+                        <path d="M4.563 5h16.435a1 1 0 0 1 .981 1.204l-1.026 6.226A2 2 0 0 1 18.962 14H6.25" />
+                        <circle cx="18" cy="20" r="2" />
+                        <circle cx="8" cy="20" r="2" />
+                    </svg>
+                </button>
             </div>
+
+            <p class="producto-detalle-descripcion">@producto.Descripcion</p>
         </div>
     </div>
 }
@@ -78,21 +150,132 @@ else
     public int Id { get; set; }
 
     private Producto? producto;
-    private int? selectedVarianteId;
+    private List<string> imagenes = new();
+    private int imagenIndex;
+    private string? imagenSeleccionada => imagenes.Count > 0 ? imagenes[imagenIndex] : null;
+    private int descuentoPorcentaje;
     private int cantidad = 1;
     private string? mensaje;
+
+    private string? colorSeleccionado;
+    private string? tallaSeleccionada;
+
+    private List<string> tallasDisponibles => producto?.Variantes
+        .Select(v => v.Talla)
+        .Distinct()
+        .ToList() ?? new();
+
+    private List<string> coloresDisponibles => producto?.Variantes
+        .Where(v => v.Talla == tallaSeleccionada)
+        .Select(v => v.Color)
+        .Distinct()
+        .ToList() ?? new();
+
+    private ProductoVariante? varianteSeleccionada => producto?.Variantes
+        .FirstOrDefault(v => v.Color == colorSeleccionado && v.Talla == tallaSeleccionada);
+
+    private static readonly (string Palabra, string Hex)[] ColoresConocidos =
+    {
+        ("negro", "#111111"), ("blanco", "#ffffff"), ("gris", "#9e9e9e"), ("plomo", "#9e9e9e"),
+        ("rojo", "#c0392b"), ("rosado", "#e91e8c"), ("rosa", "#e91e8c"), ("fucsia", "#e91e8c"),
+        ("azul", "#1e3a5f"), ("celeste", "#4fa8d8"), ("turquesa", "#1abc9c"),
+        ("verde", "#2e7d32"), ("oliva", "#6b8e23"), ("amarillo", "#f1c40f"), ("mostaza", "#c9a227"),
+        ("naranja", "#e67e22"), ("morado", "#6c3483"), ("violeta", "#6c3483"), ("lila", "#b39ddb"),
+        ("café", "#6f4e37"), ("cafe", "#6f4e37"), ("marrón", "#6f4e37"), ("marron", "#6f4e37"),
+        ("chocolate", "#5a3825"), ("beige", "#d8c3a5"), ("camel", "#c19a6b"), ("crema", "#f5f0e1"),
+        ("dorado", "#d4af37"), ("plateado", "#c0c0c0"), ("vino", "#722f37"), ("coral", "#ef6c57"),
+    };
+
+    private static string? ObtenerHexColor(string nombre)
+    {
+        var normalizado = nombre.ToLowerInvariant();
+        foreach (var (palabra, hex) in ColoresConocidos)
+        {
+            if (normalizado.Contains(palabra))
+            {
+                return hex;
+            }
+        }
+
+        return null;
+    }
 
     protected override async Task OnInitializedAsync()
     {
         producto = await Db.Productos
             .Include(p => p.Categoria)
             .Include(p => p.Variantes)
+            .Include(p => p.ImagenesAdicionales)
             .FirstOrDefaultAsync(p => p.Id == Id);
+
+        if (producto is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(producto.ImagenUrl))
+            {
+                imagenes.Add(producto.ImagenUrl);
+            }
+
+            imagenes.AddRange(producto.ImagenesAdicionales
+                .OrderBy(i => i.Orden)
+                .Select(i => i.Url));
+
+            if (producto.EnOferta && producto.PrecioOferta is not null && producto.Precio > 0)
+            {
+                descuentoPorcentaje = (int)Math.Round((1 - (producto.PrecioOferta.Value / producto.Precio)) * 100);
+            }
+
+            tallaSeleccionada = producto.Variantes.Select(v => v.Talla).FirstOrDefault();
+            SeleccionarTalla(tallaSeleccionada);
+        }
+    }
+
+    private void SeleccionarTalla(string? talla)
+    {
+        tallaSeleccionada = talla;
+
+        var variantesDeLaTalla = producto!.Variantes.Where(v => v.Talla == talla).ToList();
+        var conStock = variantesDeLaTalla.FirstOrDefault(v => v.Stock > 0);
+        colorSeleccionado = (conStock ?? variantesDeLaTalla.FirstOrDefault())?.Color;
+    }
+
+    private bool EsTallaSinStock(string talla)
+    {
+        return !producto!.Variantes.Any(v => v.Talla == talla && v.Stock > 0);
+    }
+
+    private bool EsColorSinStock(string color)
+    {
+        var variante = producto!.Variantes.FirstOrDefault(v => v.Talla == tallaSeleccionada && v.Color == color);
+        return variante is null || variante.Stock == 0;
+    }
+
+    private void DecrementarCantidad()
+    {
+        if (cantidad > 1)
+        {
+            cantidad--;
+        }
+    }
+
+    private void IncrementarCantidad()
+    {
+        cantidad++;
+    }
+
+    private void ImagenAnterior()
+    {
+        imagenIndex = (imagenIndex - 1 + imagenes.Count) % imagenes.Count;
+    }
+
+    private void ImagenSiguiente()
+    {
+        imagenIndex = (imagenIndex + 1) % imagenes.Count;
     }
 
     private async Task AgregarAlCarrito()
     {
-        if (selectedVarianteId is null || cantidad < 1)
+        var variante = varianteSeleccionada;
+        if (variante is null || cantidad < 1)
         {
             return;
         }
@@ -105,14 +288,14 @@ else
         var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
 
         var item = await Db.CarritoItems.FirstOrDefaultAsync(i =>
-            i.CarritoId == carrito.Id && i.ProductoVarianteId == selectedVarianteId);
+            i.CarritoId == carrito.Id && i.ProductoVarianteId == variante.Id);
 
         if (item is null)
         {
             Db.CarritoItems.Add(new CarritoItem
             {
                 CarritoId = carrito.Id,
-                ProductoVarianteId = selectedVarianteId.Value,
+                ProductoVarianteId = variante.Id,
                 Cantidad = cantidad
             });
         }

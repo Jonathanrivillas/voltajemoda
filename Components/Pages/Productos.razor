@@ -7,22 +7,12 @@
 
 <PageTitle>Productos</PageTitle>
 
-<h1>Catálogo</h1>
-
 @if (productos is null)
 {
     <Cargando />
 }
 else
 {
-    <select class="form-select mb-3" style="max-width: 300px;" @bind="selectedCategoriaId">
-        <option value="">Todas las categorías</option>
-        @foreach (var categoria in categorias)
-        {
-            <option value="@categoria.Id">@categoria.Nombre</option>
-        }
-    </select>
-
     if (!string.IsNullOrWhiteSpace(Buscar))
     {
         <p class="text-muted">Resultados para "@Buscar"</p>
@@ -36,10 +26,10 @@ else
     }
     else
     {
-        <div class="row">
+        <div class="producto-grid">
             @foreach (var producto in productosFiltrados)
             {
-                <div class="col-md-4 mb-4">
+                <div class="producto-grid-item">
                     <ProductoCard Producto="producto" />
                 </div>
             }
