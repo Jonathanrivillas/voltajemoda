@@ -432,6 +432,22 @@
     color: #1f1f1f;
 }
 
+.user-dropdown-link.dropdown-item.active,
+.user-dropdown-link.dropdown-item:active {
+    background: rgba(239, 108, 87, 0.14);
+    color: #1f1f1f;
+}
+
+.user-dropdown-link.dropdown-item.active svg,
+.user-dropdown-link.dropdown-item:active svg {
+    color: var(--voltaje-coral-dark);
+}
+
+.user-dropdown-link.dropdown-item.active:hover,
+.user-dropdown-link.dropdown-item.active:focus {
+    background: rgba(239, 108, 87, 0.2);
+}
+
 .user-dropdown-logout.dropdown-item {
     color: #c53030;
 }
