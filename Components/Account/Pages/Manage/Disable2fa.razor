@@ -9,24 +9,31 @@
 
 <PageTitle>Desactivar autenticación en dos pasos (2FA)</PageTitle>
 
-<StatusMessage />
-<h3>Desactivar autenticación en dos pasos (2FA)</h3>
+<div class="account-card">
+    <div class="account-card-header">
+        <div class="account-card-icon"><IconoSvg Nombre="escudo" Width="20" Height="20" /></div>
+        <div>
+            <h2 class="account-card-title">Desactivar autenticación en dos pasos (2FA)</h2>
+        </div>
+    </div>
+    <div class="account-card-body">
+        <StatusMessage />
 
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>Esta acción solo desactiva el 2FA.</strong>
-    </p>
-    <p>
-        Desactivar el 2FA no cambia las claves usadas en tu aplicación autenticadora. Si quieres cambiar
-        esa clave, deberías <a href="Account/Manage/ResetAuthenticator">restablecer tus claves de autenticación.</a>
-    </p>
-</div>
+        <div class="alert alert-warning" role="alert">
+            <p>
+                <strong>Esta acción solo desactiva el 2FA.</strong>
+            </p>
+            <p>
+                Desactivar el 2FA no cambia las claves usadas en tu aplicación autenticadora. Si quieres cambiar
+                esa clave, deberías <a href="Account/Manage/ResetAuthenticator">restablecer tus claves de autenticación.</a>
+            </p>
+        </div>
 
-<div>
-    <form @formname="disable-2fa" @onsubmit="OnSubmitAsync" method="post">
-        <AntiforgeryToken />
-        <button class="btn btn-danger" type="submit">Desactivar 2FA</button>
-    </form>
+        <form @formname="disable-2fa" @onsubmit="OnSubmitAsync" method="post">
+            <AntiforgeryToken />
+            <button class="btn btn-danger" type="submit">Desactivar 2FA</button>
+        </form>
+    </div>
 </div>
 
 @code {

@@ -1,0 +1,371 @@
+/* ============================================================
+   Mi Cuenta — sistema visual (Components/Account/Pages/Manage/*
+   y páginas relacionadas como Mis Pedidos / Detalle de pedido)
+   ============================================================ */
+
+.account-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: clamp(0.5rem, 2vw, 1.5rem) 0 4rem;
+}
+
+.account-header {
+    margin-bottom: 2rem;
+}
+
+.account-kicker {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.account-header h1 {
+    font-size: 1.85rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.account-header p {
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+.account-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.75rem;
+    align-items: start;
+}
+
+@media (max-width: 991.98px) {
+    .account-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.account-sidebar {
+    position: sticky;
+    top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+@media (max-width: 991.98px) {
+    .account-sidebar {
+        position: static;
+    }
+}
+
+.account-user {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: #fff;
+    border: 1px solid #e9e9e9;
+    border-radius: 16px;
+    padding: 1.1rem 1.15rem;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.05);
+}
+
+.account-avatar {
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.account-user-info {
+    min-width: 0;
+}
+
+.account-user-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-user-email {
+    font-size: 0.8rem;
+    color: #6c757d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-nav-card {
+    background: #fff;
+    border: 1px solid #e9e9e9;
+    border-radius: 16px;
+    padding: 0.6rem;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.05);
+}
+
+.account-nav-group + .account-nav-group {
+    margin-top: 0.35rem;
+}
+
+.account-nav-group-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #adb5bd;
+    padding: 0.75rem 0.75rem 0.35rem;
+}
+
+.account-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.account-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 10px;
+    color: #1f1f1f;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+}
+
+.account-nav-link svg {
+    flex-shrink: 0;
+    color: #6c757d;
+}
+
+.account-nav-link:hover {
+    background: #f6f6f6;
+    color: #1f1f1f;
+}
+
+.account-nav-link.active {
+    background: #fdf0ee;
+    border-left-color: var(--voltaje-coral);
+    color: #000;
+    font-weight: 700;
+}
+
+.account-nav-link.active svg {
+    color: var(--voltaje-coral);
+}
+
+.account-content {
+    min-width: 0;
+}
+
+.account-card {
+    background: #fff;
+    border: 1px solid #e9e9e9;
+    border-radius: 16px;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.06);
+    padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.account-card + .account-card {
+    margin-top: 1.5rem;
+}
+
+.account-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+
+.account-card-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #f4f4f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000;
+}
+
+.account-card-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.account-card-subtitle {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+
+.account-card .form-control,
+.account-card .form-select {
+    border-radius: 8px;
+}
+
+/* Badges de estado de pedido */
+.account-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.account-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.account-badge-pendiente {
+    background: #fff3e0;
+    color: #b16a00;
+}
+
+.account-badge-enviado {
+    background: #e7f1ff;
+    color: #1a5bb8;
+}
+
+.account-badge-entregado {
+    background: #e6f6ec;
+    color: #1e7d3d;
+}
+
+.account-badge-cancelado {
+    background: #fdecea;
+    color: #c53030;
+}
+
+/* Direcciones */
+.account-address-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.account-address-card {
+    position: relative;
+    border: 1px solid #e9e9e9;
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.account-address-card.is-default {
+    border-color: var(--voltaje-coral);
+}
+
+.account-address-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.account-address-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c757d;
+}
+
+.account-address-default-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--voltaje-coral-dark);
+}
+
+.account-address-name {
+    font-weight: 700;
+}
+
+.account-address-text {
+    color: #495057;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.account-address-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+}
+
+/* Mis pedidos */
+.account-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.account-order-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    border: 1px solid #e9e9e9;
+    border-radius: 12px;
+    padding: 0.9rem 1.1rem;
+}
+
+.account-order-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.account-order-id {
+    font-weight: 700;
+}
+
+.account-order-date {
+    font-size: 0.82rem;
+    color: #6c757d;
+}
+
+.account-order-total {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.account-order-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}

@@ -14,53 +14,70 @@
 
 <PageTitle>Pedido #@Id</PageTitle>
 
-@if (!cargado)
-{
-    <Cargando />
-}
-else if (pedido is null)
-{
-    <p>Pedido no encontrado.</p>
-}
-else
-{
-    <h1>Pedido #@pedido.Id</h1>
-    <p>Fecha: @pedido.Fecha.ToLocalTime().ToString("g")</p>
-    <p>Estado: @pedido.Estado</p>
-    <p>Enviar a: @pedido.Direccion?.Calle, @pedido.Direccion?.Ciudad, @pedido.Direccion?.CodigoPostal</p>
+<div class="account-shell">
+    @if (!cargado)
+    {
+        <Cargando />
+    }
+    else if (pedido is null)
+    {
+        <EstadoVacio Mensaje="Pedido no encontrado." />
+    }
+    else
+    {
+        <div class="account-card">
+            <div class="account-card-header">
+                <div class="account-card-icon"><IconoSvg Nombre="caja" Width="20" Height="20" /></div>
+                <div>
+                    <h2 class="account-card-title">Pedido #@pedido.Id</h2>
+                    <p class="account-card-subtitle">@pedido.Fecha.ToLocalTime().ToString("g")</p>
+                </div>
+            </div>
+            <div class="account-card-body">
+                @if (esUsuarioAutenticado)
+                {
+                    <a href="/mis-pedidos" class="btn btn-sm btn-outline-dark mb-3">&larr; Volver a mis pedidos</a>
+                }
 
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Talla / Color</th>
-                <th>Cantidad</th>
-                <th>Precio unitario</th>
-                <th>Subtotal</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var item in pedido.Items)
-            {
-                <tr>
-                    <td>@item.ProductoVariante?.Producto?.Nombre</td>
-                    <td>@item.ProductoVariante?.Talla / @item.ProductoVariante?.Color</td>
-                    <td>@item.Cantidad</td>
-                    <td>@item.PrecioUnitario.ToString("C")</td>
-                    <td>@((item.PrecioUnitario * item.Cantidad).ToString("C"))</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                <p><span class="account-badge account-badge-@pedido.Estado.ToString().ToLowerInvariant()">@pedido.Estado</span></p>
+                <p>Enviar a: @pedido.Direccion?.Calle, @pedido.Direccion?.Ciudad, @pedido.Direccion?.CodigoPostal</p>
 
-    <h4 class="text-end">Total: @pedido.Total.ToString("C")</h4>
-}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Talla / Color</th>
+                            <th>Cantidad</th>
+                            <th>Precio unitario</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in pedido.Items)
+                        {
+                            <tr>
+                                <td>@item.ProductoVariante?.Producto?.Nombre</td>
+                                <td>@item.ProductoVariante?.Talla / @item.ProductoVariante?.Color</td>
+                                <td>@item.Cantidad</td>
+                                <td>@item.PrecioUnitario.ToString("C")</td>
+                                <td>@((item.PrecioUnitario * item.Cantidad).ToString("C"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <h4 class="text-end">Total: @pedido.Total.ToString("C")</h4>
+            </div>
+        </div>
+    }
+</div>
 
 @code {
     [Parameter]
     public int Id { get; set; }
 
     private bool cargado;
+    private bool esUsuarioAutenticado;
     private Pedido? pedido;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -68,7 +85,8 @@ else
         if (firstRender)
         {
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var usuarioId = authState.User.Identity?.IsAuthenticated == true
+            esUsuarioAutenticado = authState.User.Identity?.IsAuthenticated == true;
+            var usuarioId = esUsuarioAutenticado
                 ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
                 : null;
 

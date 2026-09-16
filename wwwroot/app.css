@@ -346,6 +346,50 @@ h1:focus {
     text-align: start;
 }
 
+/* Estados de carga y vacío (compartidos en todo el sitio) */
+.loading-state {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: #6c757d;
+    padding: 1.5rem 0;
+    font-size: 0.95rem;
+}
+
+.loading-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #e0e0e0;
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: loading-spin 0.7s linear infinite;
+}
+
+@keyframes loading-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.6rem;
+    padding: 2.5rem 1rem;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    color: #ced4da;
+}
+
+.empty-state-message {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
 /* Páginas de autenticación (login / registro) */
 .auth-page {
     display: flex;
