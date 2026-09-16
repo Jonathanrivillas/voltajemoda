@@ -71,6 +71,18 @@ document.addEventListener('click', function (event) {
     imagenes[siguiente].classList.add('activa');
 });
 
+// Abre el panel lateral del carrito (offcanvas de Bootstrap) desde código, para poder mostrarlo
+// recién después de refrescar sus datos en Blazor en vez de dejar que el atributo data-bs-toggle
+// lo abra con contenido potencialmente desactualizado.
+window.carritoUi = {
+    abrir(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(el);
+        offcanvas.show();
+    }
+};
+
 // Desliza el carrusel de "Ofertas destacadas" con las flechas grandes a los costados.
 document.addEventListener('click', function (event) {
     const boton = event.target.closest('.destacados-arrow');
