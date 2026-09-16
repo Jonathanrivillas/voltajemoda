@@ -38,7 +38,7 @@ public static class IdentitySeeder
                 EmailConfirmed = true
             };
 
-            var result = await userManager.CreateAsync(adminUser, "Admin123!");
+            var result = await userManager.CreateAsync(adminUser, "Admin1234!");
             if (!result.Succeeded)
             {
                 logger.LogError("No se pudo crear el usuario administrador de prueba: {Errors}",

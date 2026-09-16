@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VoltajeModa.Data;
 
@@ -11,9 +12,11 @@ using VoltajeModa.Data;
 namespace VoltajeModa.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915162710_AgregarBannerYDestacados")]
+    partial class AgregarBannerYDestacados
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -491,9 +494,6 @@ namespace VoltajeModa.Migrations
                     b.Property<bool>("EnOferta")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("EsNuevo")
-                        .HasColumnType("bit");
-
                     b.Property<string>("ImagenUrl")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -515,31 +515,6 @@ namespace VoltajeModa.Migrations
                     b.HasIndex("CategoriaId");
 
                     b.ToTable("Productos");
-                });
-
-            modelBuilder.Entity("VoltajeModa.Models.ProductoImagen", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Orden")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ProductoId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductoId");
-
-                    b.ToTable("ProductoImagenes");
                 });
 
             modelBuilder.Entity("VoltajeModa.Models.ProductoVariante", b =>
@@ -744,17 +719,6 @@ namespace VoltajeModa.Migrations
                     b.Navigation("Categoria");
                 });
 
-            modelBuilder.Entity("VoltajeModa.Models.ProductoImagen", b =>
-                {
-                    b.HasOne("VoltajeModa.Models.Producto", "Producto")
-                        .WithMany("ImagenesAdicionales")
-                        .HasForeignKey("ProductoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Producto");
-                });
-
             modelBuilder.Entity("VoltajeModa.Models.ProductoVariante", b =>
                 {
                     b.HasOne("VoltajeModa.Models.Producto", "Producto")
@@ -783,8 +747,6 @@ namespace VoltajeModa.Migrations
 
             modelBuilder.Entity("VoltajeModa.Models.Producto", b =>
                 {
-                    b.Navigation("ImagenesAdicionales");
-
                     b.Navigation("Variantes");
                 });
 #pragma warning restore 612, 618

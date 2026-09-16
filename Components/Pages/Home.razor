@@ -8,60 +8,108 @@
 
 <PageTitle>Voltaje Moda</PageTitle>
 
-<div class="hero-full">
-    <img src="https://picsum.photos/seed/voltaje-hero/1600/700" alt="Nueva colección Voltaje Moda" />
-</div>
-
-@if (ofertas is not null && ofertas.Count > 0)
+@if (slidesActivos is null)
 {
-    <h2 class="mb-3">Ofertas destacadas</h2>
-    <div class="row mb-5">
-        @foreach (var producto in ofertas)
+    <div class="hero-full">
+        <Cargando />
+    </div>
+}
+else if (slidesActivos.Count == 0)
+{
+    <div class="hero-full">
+        <img src="https://picsum.photos/seed/voltaje-hero/1600/700" alt="Nueva colección Voltaje Moda" />
+    </div>
+}
+else
+{
+    <div id="heroCarousel" class="carousel slide hero-full" data-bs-ride="carousel">
+        <div class="carousel-inner">
+            @for (var i = 0; i < slidesActivos.Count; i++)
+            {
+                var slide = slidesActivos[i];
+                <div class="carousel-item @(i == 0 ? "active" : "")">
+                    @if (!string.IsNullOrWhiteSpace(slide.EnlaceUrl))
+                    {
+                        <a href="@slide.EnlaceUrl">
+                            <img src="@slide.ImagenUrl" alt="@(slide.Titulo ?? "Voltaje Moda")" />
+                        </a>
+                    }
+                    else
+                    {
+                        <img src="@slide.ImagenUrl" alt="@(slide.Titulo ?? "Voltaje Moda")" />
+                    }
+                </div>
+            }
+        </div>
+
+        @if (slidesActivos.Count > 1)
         {
-            <div class="col-md-3 mb-3">
-                <ProductoCard Producto="producto" MostrarCategoria="false" />
+            <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Anterior</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Siguiente</span>
+            </button>
+            <div class="carousel-indicators">
+                @for (var i = 0; i < slidesActivos.Count; i++)
+                {
+                    var indice = i;
+                    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="@indice" class="@(indice == 0 ? "active" : "")" aria-label="Slide @(indice + 1)"></button>
+                }
             </div>
         }
     </div>
 }
 
-<h2 class="mb-3">Categorías</h2>
+<h2 class="mb-3 text-center p-2">Ofertas destacadas</h2>
 
-@if (categorias is null)
+@if (destacados is null)
 {
     <Cargando />
 }
-else if (categorias.Count == 0)
+else if (destacados.Count == 0)
 {
-    <EstadoVacio Mensaje="Todavía no hay categorías cargadas." />
+    <EstadoVacio Mensaje="Todavía no hay productos destacados." />
 }
 else
 {
-    <div class="row">
-        @foreach (var categoria in categorias)
-        {
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">@categoria.Nombre</h5>
-                        <a href="/productos" class="btn btn-outline-dark btn-sm">Explorar</a>
-                    </div>
+    <div class="destacados-wrapper mb-5">
+        <button type="button" class="destacados-arrow destacados-arrow-prev" aria-label="Ver ofertas anteriores">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+
+        <div class="destacados-carousel">
+            @foreach (var producto in destacados)
+            {
+                <div class="destacados-item">
+                    <ProductoCard Producto="producto" MostrarCategoria="false" />
                 </div>
-            </div>
-        }
+            }
+        </div>
+
+        <button type="button" class="destacados-arrow destacados-arrow-next" aria-label="Ver más ofertas">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="m9 18 6-6-6-6" /></svg>
+        </button>
     </div>
 }
 
 @code {
-    private List<Categoria>? categorias;
-    private List<Producto>? ofertas;
+    private List<BannerSlide>? slidesActivos;
+    private List<Producto>? destacados;
 
     protected override async Task OnInitializedAsync()
     {
-        categorias = await Db.Categorias.ToListAsync();
-        ofertas = await Db.Productos
-            .Where(p => p.EnOferta)
-            .Take(4)
+        slidesActivos = await Db.BannerSlides
+            .Where(s => s.Activo)
+            .OrderBy(s => s.Orden)
+            .ToListAsync();
+
+        destacados = await Db.Productos
+            .Where(p => p.Destacado)
+            .Include(p => p.ImagenesAdicionales)
+            .Take(8)
             .ToListAsync();
     }
 }

@@ -13,12 +13,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<Producto> Productos => Set<Producto>();
     public DbSet<ProductoVariante> ProductoVariantes => Set<ProductoVariante>();
+    public DbSet<ProductoImagen> ProductoImagenes => Set<ProductoImagen>();
     public DbSet<Direccion> Direcciones => Set<Direccion>();
     public DbSet<Carrito> Carritos => Set<Carrito>();
     public DbSet<CarritoItem> CarritoItems => Set<CarritoItem>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<PedidoItem> PedidoItems => Set<PedidoItem>();
     public DbSet<MovimientoStock> MovimientosStock => Set<MovimientoStock>();
+    public DbSet<BannerSlide> BannerSlides => Set<BannerSlide>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

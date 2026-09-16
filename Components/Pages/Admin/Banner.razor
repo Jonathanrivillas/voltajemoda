@@ -1,0 +1,246 @@
+@page "/admin/banner"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Hosting
+
+@inject ApplicationDbContext Db
+@inject IWebHostEnvironment WebHostEnvironment
+
+<PageTitle>Banner del inicio</PageTitle>
+
+<div class="admin-page-header">
+    <div>
+        <h1>Banner del inicio</h1>
+        <p>Configura las imágenes del carrusel de la página principal y a dónde llevan al hacer click.</p>
+    </div>
+    <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalSlide" @onclick="AbrirNuevo">
+        <i class="bi bi-plus-lg"></i> Nuevo slide
+    </button>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (slides is null)
+{
+    <Cargando />
+}
+else if (slides.Count == 0)
+{
+    <EstadoVacio Mensaje="Todavía no hay slides configurados. Mientras tanto se muestra una imagen genérica." />
+}
+else
+{
+    <AdminCard>
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Título</th>
+                        <th>Enlace</th>
+                        <th>Orden</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var slide in slides)
+                    {
+                        <tr>
+                            <td><img src="@slide.ImagenUrl" alt="@slide.Titulo" class="admin-table-thumb" /></td>
+                            <td>@(string.IsNullOrWhiteSpace(slide.Titulo) ? "—" : slide.Titulo)</td>
+                            <td>@(string.IsNullOrWhiteSpace(slide.EnlaceUrl) ? "—" : slide.EnlaceUrl)</td>
+                            <td>@slide.Orden</td>
+                            <td>
+                                @if (slide.Activo)
+                                {
+                                    <span class="admin-badge admin-badge--entregado">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="admin-badge admin-badge--cancelado">Inactivo</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalSlide" @onclick="() => AbrirEditar(slide)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarSlide" @onclick="() => slideAEliminar = slide">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </AdminCard>
+}
+
+<div class="modal fade" id="modalSlide" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <EditForm Model="slideEdicion" OnValidSubmit="Guardar">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(slideEdicion.Id == 0 ? "Nuevo slide" : "Editar slide")</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Subir imagen desde el equipo</label>
+                        <InputFile class="form-control" OnChange="SubirImagen" accept="image/png,image/jpeg,image/webp,image/gif" disabled="@subiendoImagen" />
+                        @if (subiendoImagen)
+                        {
+                            <div class="text-muted small mt-1">Subiendo imagen...</div>
+                        }
+                        @if (errorImagen is not null)
+                        {
+                            <div class="text-danger small mt-1">@errorImagen</div>
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">O pegar una URL externa</label>
+                        <InputText class="form-control" @bind-Value="slideEdicion.ImagenUrl" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(slideEdicion.ImagenUrl))
+                    {
+                        <img src="@slideEdicion.ImagenUrl" alt="Vista previa" class="admin-image-preview mb-3" />
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Título (texto alternativo)</label>
+                        <InputText class="form-control" @bind-Value="slideEdicion.Titulo" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Enlace al hacer click (opcional)</label>
+                        <InputText class="form-control" @bind-Value="slideEdicion.EnlaceUrl" placeholder="/productos?categoriaId=1, https://..., etc." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Orden</label>
+                        <InputNumber class="form-control" @bind-Value="slideEdicion.Orden" />
+                    </div>
+                    <div class="form-check">
+                        <InputCheckbox class="form-check-input" id="slideActivo" @bind-Value="slideEdicion.Activo" />
+                        <label class="form-check-label" for="slideActivo">Activo (se muestra en el carrusel)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-dark" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-dark" disabled="@(string.IsNullOrWhiteSpace(slideEdicion.ImagenUrl))">Guardar</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+<ConfirmDialog Id="confirmarEliminarSlide" Titulo="Eliminar slide"
+    Mensaje="@($"¿Eliminar el slide '{slideAEliminar?.Titulo}'?")"
+    OnConfirmado="EliminarConfirmado" />
+
+@code {
+    private List<BannerSlide>? slides;
+    private BannerSlide slideEdicion = new();
+    private BannerSlide? slideAEliminar;
+    private string? error;
+
+    private bool subiendoImagen;
+    private string? errorImagen;
+    private const long TamanoMaximoImagen = 5 * 1024 * 1024;
+    private static readonly string[] ExtensionesImagenPermitidas = { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        slides = await Db.BannerSlides
+            .OrderBy(s => s.Orden)
+            .ToListAsync();
+    }
+
+    private void AbrirNuevo()
+    {
+        slideEdicion = new() { Orden = (slides?.Count ?? 0) + 1 };
+        errorImagen = null;
+    }
+
+    private void AbrirEditar(BannerSlide slide)
+    {
+        slideEdicion = slide;
+        errorImagen = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrWhiteSpace(slideEdicion.ImagenUrl)) return;
+
+        if (slideEdicion.Id == 0)
+        {
+            Db.BannerSlides.Add(slideEdicion);
+        }
+
+        await Db.SaveChangesAsync();
+        slideEdicion = new();
+        await CargarAsync();
+    }
+
+    private async Task SubirImagen(InputFileChangeEventArgs e)
+    {
+        errorImagen = null;
+        var archivo = e.File;
+
+        var extension = Path.GetExtension(archivo.Name).ToLowerInvariant();
+        if (!ExtensionesImagenPermitidas.Contains(extension))
+        {
+            errorImagen = "Formato no soportado. Usa JPG, PNG, WEBP o GIF.";
+            return;
+        }
+
+        if (archivo.Size > TamanoMaximoImagen)
+        {
+            errorImagen = "La imagen no puede superar los 5 MB.";
+            return;
+        }
+
+        subiendoImagen = true;
+        try
+        {
+            var carpeta = Path.Combine(WebHostEnvironment.WebRootPath, "uploads", "banner");
+            Directory.CreateDirectory(carpeta);
+
+            var nombreArchivo = $"{Guid.NewGuid():N}{extension}";
+            var rutaCompleta = Path.Combine(carpeta, nombreArchivo);
+
+            await using (var stream = archivo.OpenReadStream(TamanoMaximoImagen))
+            await using (var destino = File.Create(rutaCompleta))
+            {
+                await stream.CopyToAsync(destino);
+            }
+
+            slideEdicion.ImagenUrl = $"/uploads/banner/{nombreArchivo}";
+        }
+        catch (IOException)
+        {
+            errorImagen = "No se pudo guardar la imagen. Intenta de nuevo.";
+        }
+        finally
+        {
+            subiendoImagen = false;
+        }
+    }
+
+    private async Task EliminarConfirmado()
+    {
+        if (slideAEliminar is null) return;
+        error = null;
+
+        Db.BannerSlides.Remove(slideAEliminar);
+        await Db.SaveChangesAsync();
+        slideAEliminar = null;
+        await CargarAsync();
+    }
+}

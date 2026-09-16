@@ -13,6 +13,8 @@ public class Producto
     public string ImagenUrl { get; set; } = string.Empty;
 
     public bool EnOferta { get; set; }
+    public bool Destacado { get; set; }
+    public bool EsNuevo { get; set; }
 
     [Precision(18, 2)]
     public decimal? PrecioOferta { get; set; }
@@ -24,4 +26,5 @@ public class Producto
     public Categoria? Categoria { get; set; }
 
     public List<ProductoVariante> Variantes { get; set; } = new();
+    public List<ProductoImagen> ImagenesAdicionales { get; set; } = new();
 }

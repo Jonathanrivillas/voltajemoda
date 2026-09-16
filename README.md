@@ -11,7 +11,8 @@ Funcionalidades ya implementadas y operativas de punta a punta:
 - **Carrito**: funciona con o sin cuenta (invitado). El carrito de un invitado se fusiona automáticamente con su cuenta al iniciar sesión.
 - **Checkout**: con o sin cuenta, valida stock disponible, descuenta stock al confirmar, respeta el precio de oferta vigente.
 - **Historial de pedidos** del cliente, y **detalle de pedido** (accesible tanto por el dueño registrado como por el invitado que lo generó).
-- **Panel de administración** (`/admin`, solo rol `Administrador`): shell propio con sidebar oscura y diseño independiente del sitio público. Incluye dashboard con KPIs y gráficos (ventas, top productos), CRUD de productos (incluyendo variantes) y categorías, control de inventario con historial de movimientos de stock (`/admin/inventario`), gestión de pedidos y cambio de estado, estadísticas con rango de fechas configurable (`/admin/estadisticas`) y gestión de usuarios/roles (`/admin/usuarios`). Con protecciones para no borrar en cascada datos con historial real (ver "Convenciones" más abajo).
+- **Panel de administración** (`/admin`, solo rol `Administrador`): shell propio con sidebar oscura y diseño independiente del sitio público. Incluye dashboard con KPIs y gráficos (ventas, top productos), gestión del banner/carrusel del inicio (`/admin/banner`, imagen por URL o subida desde el equipo, con enlace opcional al hacer click), CRUD de productos (incluyendo variantes, imagen y marca de "destacado") y categorías, control de inventario con historial de movimientos de stock (`/admin/inventario`), gestión de pedidos y cambio de estado, estadísticas con rango de fechas configurable (`/admin/estadisticas`) y gestión de usuarios/roles (`/admin/usuarios`). Con protecciones para no borrar en cascada datos con historial real (ver "Convenciones" más abajo).
+- **Inicio (`/`)**: carrusel configurable desde el admin (con fallback a una imagen genérica si no hay slides activos) y sección "Ofertas destacadas" con los productos que el admin marcó como destacados (no es automático por precio/oferta).
 - **Diseño base**: navbar superior, footer con contacto/redes (placeholders, ver más abajo), paleta blanco/negro aplicada globalmente en el sitio público; el panel admin tiene su propia paleta (sidebar oscura + acento coral), ver `wwwroot/admin.css`.
 
 ### Backlog / próximos pasos (no implementado todavía)
@@ -84,7 +85,7 @@ dotnet run
 - `dotnet ef database update` crea la base de datos `VoltajeModaDb` y aplica todas las migraciones existentes.
 - Al arrancar **en desarrollo local únicamente**, la app siembra automáticamente datos de prueba (categorías, productos con variantes, una oferta) y roles (`Cliente`, `Administrador`), incluyendo un usuario administrador de prueba:
   - **Email:** `admin@voltajemoda.com`
-  - **Contraseña:** `Admin123!`
+  - **Contraseña:** `Admin1234!`
   
   Este usuario **no existe en producción** (el seeding de datos demo y del admin de prueba está condicionado a `IsDevelopment()` en `Program.cs`). En producción, el primer administrador se asigna manualmente en la base de datos — ver la sección "Permisos" más abajo.
 
