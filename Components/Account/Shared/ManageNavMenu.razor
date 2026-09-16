@@ -3,35 +3,86 @@
 
 @inject SignInManager<ApplicationUser> SignInManager
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Perfil</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Email">Correo electrónico</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/ChangePassword">Contraseña</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Direcciones">Direcciones de envío</NavLink>
-    </li>
-    @if (hasExternalLogins)
-    {
-        <li class="nav-item">
-            <NavLink class="nav-link" href="Account/Manage/ExternalLogins">Inicios de sesión externos</NavLink>
+<div class="account-nav-group">
+    <span class="account-nav-group-label">Cuenta</span>
+    <ul class="account-nav">
+        <li>
+            <NavLink class="account-nav-link" href="Account/Manage" Match="NavLinkMatch.All">
+                <IconoSvg Nombre="usuario" />
+                <span>Perfil</span>
+            </NavLink>
         </li>
-    }
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication">Autenticación en dos pasos</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Passkeys">Llaves de acceso</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/PersonalData">Datos personales</NavLink>
-    </li>
-</ul>
+        <li>
+            <NavLink class="account-nav-link" href="Account/Manage/Email">
+                <IconoSvg Nombre="correo" />
+                <span>Correo electrónico</span>
+            </NavLink>
+        </li>
+        <li>
+            <NavLink class="account-nav-link" href="Account/Manage/ChangePassword">
+                <IconoSvg Nombre="candado" />
+                <span>Contraseña</span>
+            </NavLink>
+        </li>
+    </ul>
+</div>
+
+<div class="account-nav-group">
+    <span class="account-nav-group-label">Compras</span>
+    <ul class="account-nav">
+        <li>
+            <NavLink class="account-nav-link" href="Account/Manage/Direcciones">
+                <IconoSvg Nombre="ubicacion" />
+                <span>Direcciones de envío</span>
+            </NavLink>
+        </li>
+        <li>
+            <NavLink class="account-nav-link" href="mis-pedidos">
+                <IconoSvg Nombre="caja" />
+                <span>Mis pedidos</span>
+            </NavLink>
+        </li>
+    </ul>
+</div>
+
+<div class="account-nav-group">
+    <span class="account-nav-group-label">Seguridad</span>
+    <ul class="account-nav">
+        @if (hasExternalLogins)
+        {
+            <li>
+                <NavLink class="account-nav-link" href="Account/Manage/ExternalLogins">
+                    <IconoSvg Nombre="enlace" />
+                    <span>Inicios de sesión externos</span>
+                </NavLink>
+            </li>
+        }
+        <li>
+            <NavLink class="account-nav-link" href="Account/Manage/TwoFactorAuthentication">
+                <IconoSvg Nombre="escudo" />
+                <span>Autenticación en dos pasos</span>
+            </NavLink>
+        </li>
+        <li>
+            <NavLink class="account-nav-link" href="Account/Manage/Passkeys">
+                <IconoSvg Nombre="llave" />
+                <span>Llaves de acceso</span>
+            </NavLink>
+        </li>
+    </ul>
+</div>
+
+<div class="account-nav-group">
+    <span class="account-nav-group-label">Privacidad</span>
+    <ul class="account-nav">
+        <li>
+            <NavLink class="account-nav-link" href="Account/Manage/PersonalData">
+                <IconoSvg Nombre="documento" />
+                <span>Datos personales</span>
+            </NavLink>
+        </li>
+    </ul>
+</div>
 
 @code {
     private bool hasExternalLogins;

@@ -34,5 +34,16 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<MovimientoStock>()
             .Property(m => m.Motivo)
             .HasMaxLength(200);
+
+        modelBuilder.Entity<Pedido>()
+            .HasOne(p => p.Direccion)
+            .WithMany()
+            .HasForeignKey(p => p.DireccionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Direccion>()
+            .Property(d => d.Etiqueta)
+            .HasMaxLength(30)
+            .HasDefaultValue("Casa");
     }
 }

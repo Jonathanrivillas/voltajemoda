@@ -14,41 +14,50 @@
 
 <PageTitle>Administrar correo electrónico</PageTitle>
 
-<h3>Administrar correo electrónico</h3>
-
-<StatusMessage Message="@message"/>
-<div class="row">
-    <div class="col-xl-6">
-        <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
-            <AntiforgeryToken />
-        </form>
-        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            @if (isEmailConfirmed)
-            {
-                <div class="form-floating mb-3 input-group">
-                    <input type="text" value="@email" id="email" class="form-control" placeholder="Ingresa tu correo electrónico" disabled />
-                    <div class="input-group-append">
-                        <span class="h-100 input-group-text text-success font-weight-bold">?</span>
+<div class="account-card">
+    <div class="account-card-header">
+        <div class="account-card-icon"><IconoSvg Nombre="correo" Width="20" Height="20" /></div>
+        <div>
+            <h2 class="account-card-title">Correo electrónico</h2>
+            <p class="account-card-subtitle">Se usa para iniciar sesión y recibir notificaciones de tus pedidos.</p>
+        </div>
+    </div>
+    <div class="account-card-body">
+        <StatusMessage Message="@message"/>
+        <div class="row">
+            <div class="col-xl-6">
+                <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
+                    <AntiforgeryToken />
+                </form>
+                <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
+                    <DataAnnotationsValidator />
+                    @if (isEmailConfirmed)
+                    {
+                        <div class="form-floating mb-3 input-group">
+                            <input type="text" value="@email" id="email" class="form-control" placeholder=" " disabled />
+                            <div class="input-group-append">
+                                <span class="h-100 input-group-text text-success font-weight-bold">?</span>
+                            </div>
+                            <label for="email" class="form-label">Correo electrónico</label>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="form-floating mb-3">
+                            <input type="text" value="@email" id="email" class="form-control" placeholder=" " disabled />
+                            <label for="email" class="form-label">Correo electrónico</label>
+                            <button type="submit" class="btn btn-link" form="send-verification-form">Enviar correo de verificación</button>
+                        </div>
+                    }
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder=" " />
+                        <label for="Input.NewEmail" class="form-label">Nuevo correo</label>
+                        <ValidationMessage For="() => Input.NewEmail" class="text-danger" />
                     </div>
-                    <label for="email" class="form-label">Correo electrónico</label>
-                </div>
-            }
-            else
-            {
-                <div class="form-floating mb-3">
-                    <input type="text" value="@email" id="email" class="form-control" placeholder="Ingresa tu correo electrónico" disabled />
-                    <label for="email" class="form-label">Correo electrónico</label>
-                    <button type="submit" class="btn btn-link" form="send-verification-form">Enviar correo de verificación</button>
-                </div>
-            }
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder="Ingresa un nuevo correo" />
-                <label for="Input.NewEmail" class="form-label">Nuevo correo</label>
-                <ValidationMessage For="() => Input.NewEmail" class="text-danger" />
+                    <button type="submit" class="w-100 btn btn-lg btn-primary">Cambiar correo</button>
+                </EditForm>
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Cambiar correo</button>
-        </EditForm>
+        </div>
     </div>
 </div>
 

@@ -1,0 +1,68 @@
+@page "/mis-pedidos"
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VoltajeModa.Data
+@using VoltajeModa.Models
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Mis pedidos</PageTitle>
+
+<div class="account-card">
+    <div class="account-card-header">
+        <div class="account-card-icon"><IconoSvg Nombre="caja" Width="20" Height="20" /></div>
+        <div>
+            <h2 class="account-card-title">Mis pedidos</h2>
+            <p class="account-card-subtitle">Consulta el estado y el detalle de tus compras.</p>
+        </div>
+    </div>
+    <div class="account-card-body">
+        @if (pedidos is null)
+        {
+            <Cargando />
+        }
+        else if (pedidos.Count == 0)
+        {
+            <EstadoVacio Mensaje="Todavía no tienes pedidos." EnlaceTexto="Ver catálogo" EnlaceHref="/productos" />
+        }
+        else
+        {
+            <div class="account-orders-list">
+                @foreach (var pedido in pedidos)
+                {
+                    <div class="account-order-row">
+                        <div class="account-order-meta">
+                            <span class="account-order-id">Pedido #@pedido.Id</span>
+                            <span class="account-order-date">@pedido.Fecha.ToLocalTime().ToString("g")</span>
+                        </div>
+                        <span class="account-badge account-badge-@pedido.Estado.ToString().ToLowerInvariant()">@pedido.Estado</span>
+                        <div class="account-order-actions">
+                            <span class="account-order-total">@pedido.Total.ToString("C")</span>
+                            <a href="/pedidos/@pedido.Id" class="btn btn-sm btn-outline-dark">Ver detalle</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Pedido>? pedidos;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        var usuarioId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        pedidos = await Db.Pedidos
+            .Where(p => p.UsuarioId == usuarioId)
+            .OrderByDescending(p => p.Fecha)
+            .ToListAsync();
+    }
+}

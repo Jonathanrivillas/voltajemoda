@@ -11,53 +11,61 @@
 
 <PageTitle>Administrar tus llaves de acceso</PageTitle>
 
-<h3>Administrar tus llaves de acceso</h3>
+<div class="account-card">
+    <div class="account-card-header">
+        <div class="account-card-icon"><IconoSvg Nombre="llave" Width="20" Height="20" /></div>
+        <div>
+            <h2 class="account-card-title">Llaves de acceso</h2>
+            <p class="account-card-subtitle">Inicia sesión sin contraseña usando tu huella, rostro o llave física.</p>
+        </div>
+    </div>
+    <div class="account-card-body">
+        <StatusMessage />
 
-<StatusMessage />
+        @if (currentPasskeys is { Count: > 0 })
+        {
+            <table class="table">
+                <tbody>
+                    @foreach (var passkey in currentPasskeys)
+                    {
+                        <tr>
+                            <td>@(passkey.Name ?? "Llave de acceso sin nombre")</td>
+                            <td>
+                                @{
+                                    var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
+                                }
+                                <form @formname="@($"update-passkey-{credentialId}")" @onsubmit="UpdatePasskey" method="post">
+                                    <AntiforgeryToken />
+                                    <div>
+                                        <input type="hidden" name="CredentialId" value="@credentialId" />
+                                        <button type="submit" name="Action" value="rename" class="btn btn-primary" title="Renombrar esta llave de acceso">Renombrar</button>
+                                        <button type="submit" name="Action" value="delete" class="btn btn-danger" title="Quitar esta llave de acceso de tu cuenta">Eliminar</button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="text-muted">No hay llaves de acceso registradas.</p>
+        }
 
-@if (currentPasskeys is { Count: > 0 })
-{
-    <table class="table">
-        <tbody>
-            @foreach (var passkey in currentPasskeys)
+        <form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
+            <AntiforgeryToken />
+            @if (currentPasskeys is { Count: >= MaxPasskeyCount })
             {
-                <tr>
-                    <td>@(passkey.Name ?? "Llave de acceso sin nombre")</td>
-                    <td>
-                        @{
-                            var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
-                        }
-                        <form @formname="@($"update-passkey-{credentialId}")" @onsubmit="UpdatePasskey" method="post">
-                            <AntiforgeryToken />
-                            <div>
-                                <input type="hidden" name="CredentialId" value="@credentialId" />
-                                <button type="submit" name="Action" value="rename" class="btn btn-primary" title="Renombrar esta llave de acceso">Renombrar</button>
-                                <button type="submit" name="Action" value="delete" class="btn btn-danger" title="Quitar esta llave de acceso de tu cuenta">Eliminar</button>
-                            </div>
-                        </form>
-                    </td>
-                </tr>
+                <p class="text-danger">Alcanzaste el número máximo de llaves de acceso permitidas. Elimina una antes de agregar otra.</p>
             }
-        </tbody>
-    </table>
-}
-else
-{
-    <p>No hay llaves de acceso registradas.</p>
-}
-
-<form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
-    <AntiforgeryToken />
-    @if (currentPasskeys is { Count: >= MaxPasskeyCount })
-    {
-        <p class="text-danger">Alcanzaste el número máximo de llaves de acceso permitidas. Elimina una antes de agregar otra.</p>
-    }
-    else
-    {
-        <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="btn btn-primary">Agregar una nueva llave de acceso</PasskeySubmit>
-    }
-
-</form>
+            else
+            {
+                <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="btn btn-primary">Agregar una nueva llave de acceso</PasskeySubmit>
+            }
+        </form>
+    </div>
+</div>
 
 @code {
     private const int MaxPasskeyCount = 100;

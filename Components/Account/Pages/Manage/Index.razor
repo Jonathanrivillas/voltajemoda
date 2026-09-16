@@ -10,29 +10,39 @@
 
 <PageTitle>Perfil</PageTitle>
 
-<h3>Perfil</h3>
-<StatusMessage />
+<div class="account-card">
+    <div class="account-card-header">
+        <div class="account-card-icon"><IconoSvg Nombre="usuario" Width="20" Height="20" /></div>
+        <div>
+            <h2 class="account-card-title">Perfil</h2>
+            <p class="account-card-subtitle">Tu nombre y datos de contacto básicos.</p>
+        </div>
+    </div>
+    <div class="account-card-body">
+        <StatusMessage />
 
-<div class="row">
-    <div class="col-xl-6">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Elige tu nombre de usuario." disabled />
-                <label for="username" class="form-label">Nombre de usuario</label>
+        <div class="row">
+            <div class="col-xl-6">
+                <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+                    <DataAnnotationsValidator />
+                    <div class="form-floating mb-3">
+                        <input type="text" value="@username" id="username" class="form-control" placeholder=" " disabled />
+                        <label for="username" class="form-label">Nombre de usuario</label>
+                    </div>
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.Nombre" id="Input.Nombre" class="form-control" placeholder=" " />
+                        <label for="Input.Nombre" class="form-label">Nombre completo</label>
+                        <ValidationMessage For="() => Input.Nombre" class="text-danger" />
+                    </div>
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder=" " />
+                        <label for="Input.PhoneNumber" class="form-label">Teléfono</label>
+                        <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+                    </div>
+                    <button type="submit" class="w-100 btn btn-lg btn-primary">Guardar</button>
+                </EditForm>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Nombre" id="Input.Nombre" class="form-control" placeholder="Tu nombre completo" />
-                <label for="Input.Nombre" class="form-label">Nombre completo</label>
-                <ValidationMessage For="() => Input.Nombre" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Ingresa tu número de teléfono" />
-                <label for="Input.PhoneNumber" class="form-label">Teléfono</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Guardar</button>
-        </EditForm>
+        </div>
     </div>
 </div>
 

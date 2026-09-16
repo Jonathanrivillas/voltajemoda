@@ -10,8 +10,16 @@
 
 <PageTitle>Autenticación en dos pasos (2FA)</PageTitle>
 
-<StatusMessage />
-<h3>Autenticación en dos pasos (2FA)</h3>
+<div class="account-card">
+    <div class="account-card-header">
+        <div class="account-card-icon"><IconoSvg Nombre="escudo" Width="20" Height="20" /></div>
+        <div>
+            <h2 class="account-card-title">Autenticación en dos pasos (2FA)</h2>
+            <p class="account-card-subtitle">Agrega una capa extra de seguridad a tu cuenta.</p>
+        </div>
+    </div>
+    <div class="account-card-body">
+        <StatusMessage />
 @if (canTrack)
 {
     if (is2faEnabled)
@@ -50,7 +58,7 @@
         <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary">Restablecer códigos de recuperación</a>
     }
 
-    <h4>Aplicación autenticadora</h4>
+    <h4 class="h6 fw-bold mt-4">Aplicación autenticadora</h4>
     @if (!hasAuthenticator)
     {
         <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Agregar aplicación autenticadora</a>
@@ -68,6 +76,8 @@ else
         <p>Debes aceptar la política antes de poder activar la autenticación en dos pasos.</p>
     </div>
 }
+    </div>
+</div>
 
 @code {
     private bool canTrack;
