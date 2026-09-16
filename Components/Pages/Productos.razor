@@ -7,44 +7,97 @@
 
 <PageTitle>Productos</PageTitle>
 
-<h1>Catálogo</h1>
-
 @if (productos is null)
 {
     <Cargando />
 }
 else
 {
-    <select class="form-select mb-3" style="max-width: 300px;" @bind="selectedCategoriaId">
-        <option value="">Todas las categorías</option>
-        @foreach (var categoria in categorias)
-        {
-            <option value="@categoria.Id">@categoria.Nombre</option>
-        }
-    </select>
-
-    if (!string.IsNullOrWhiteSpace(Buscar))
-    {
-        <p class="text-muted">Resultados para "@Buscar"</p>
-    }
-
     var productosFiltrados = ProductosFiltrados.ToList();
 
-    if (productosFiltrados.Count == 0)
-    {
-        <EstadoVacio Mensaje="No hay productos para mostrar." />
-    }
-    else
-    {
-        <div class="row">
-            @foreach (var producto in productosFiltrados)
+    <div class="catalogo-page">
+        @if (!string.IsNullOrWhiteSpace(Buscar))
+        {
+            <p class="text-muted">Resultados para "@Buscar"</p>
+        }
+
+        <div class="catalogo-layout">
+        <aside class="catalogo-filtros">
+            <div class="catalogo-filtros-header">
+                <p class="catalogo-filtros-titulo mb-0">Filtros</p>
+                @if (HayFiltrosActivos)
+                {
+                    <button type="button" class="btn btn-link btn-sm p-0" @onclick="LimpiarFiltros">Limpiar</button>
+                }
+            </div>
+
+            <div class="catalogo-filtros-grupo">
+                <p class="catalogo-filtros-titulo">Precio</p>
+                <div class="catalogo-filtros-precio">
+                    <input type="number" class="form-control form-control-sm" placeholder="Mín" min="0" @bind="precioMin" @bind:event="oninput" />
+                    <span class="text-muted">–</span>
+                    <input type="number" class="form-control form-control-sm" placeholder="Máx" min="0" @bind="precioMax" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <div class="catalogo-filtros-grupo">
+                <p class="catalogo-filtros-titulo">Descuentos</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="soloOferta" @bind="soloOferta" />
+                    <label class="form-check-label" for="soloOferta">Solo productos en oferta</label>
+                </div>
+            </div>
+
+            @if (tallasDisponibles.Count > 0)
             {
-                <div class="col-md-4 mb-4">
-                    <ProductoCard Producto="producto" />
+                <div class="catalogo-filtros-grupo">
+                    <p class="catalogo-filtros-titulo">Talla</p>
+                    <div class="catalogo-chip-group">
+                        @foreach (var talla in tallasDisponibles)
+                        {
+                            <button type="button" class="catalogo-chip @(tallasSeleccionadas.Contains(talla) ? "catalogo-chip--activo" : "")" @onclick="() => ToggleTalla(talla)">
+                                @talla
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (coloresDisponibles.Count > 0)
+            {
+                <div class="catalogo-filtros-grupo">
+                    <p class="catalogo-filtros-titulo">Color</p>
+                    <div class="catalogo-chip-group">
+                        @foreach (var color in coloresDisponibles)
+                        {
+                            <button type="button" class="catalogo-chip @(coloresSeleccionados.Contains(color) ? "catalogo-chip--activo" : "")" @onclick="() => ToggleColor(color)">
+                                @color
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </aside>
+
+        <div class="catalogo-resultados">
+            @if (productosFiltrados.Count == 0)
+            {
+                <EstadoVacio Mensaje="No hay productos para mostrar con estos filtros." />
+            }
+            else
+            {
+                <div class="producto-grid">
+                    @foreach (var producto in productosFiltrados)
+                    {
+                        <div class="producto-grid-item">
+                            <ProductoCard Producto="producto" />
+                        </div>
+                    }
                 </div>
             }
         </div>
-    }
+        </div>
+    </div>
 }
 
 @code {
@@ -55,22 +108,85 @@ else
     public string? Buscar { get; set; }
 
     private List<Producto>? productos;
-    private List<Categoria> categorias = new();
-    private int? selectedCategoriaId;
+    private int selectedCategoriaId;
+    private decimal? precioMin;
+    private decimal? precioMax;
+    private bool soloOferta;
+    private HashSet<string> tallasSeleccionadas = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> coloresSeleccionados = new(StringComparer.OrdinalIgnoreCase);
+
+    private List<string> tallasDisponibles => productos is null
+        ? new()
+        : productos.SelectMany(p => p.Variantes)
+            .Select(v => v.Talla)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(t => t)
+            .ToList();
+
+    private List<string> coloresDisponibles => productos is null
+        ? new()
+        : productos.SelectMany(p => p.Variantes)
+            .Select(v => v.Color)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c)
+            .ToList();
+
+    private bool HayFiltrosActivos =>
+        selectedCategoriaId != 0 || precioMin is not null || precioMax is not null || soloOferta
+        || tallasSeleccionadas.Count > 0 || coloresSeleccionados.Count > 0;
 
     private IEnumerable<Producto> ProductosFiltrados =>
         productos!
-            .Where(p => selectedCategoriaId is null || p.CategoriaId == selectedCategoriaId)
-            .Where(p => string.IsNullOrWhiteSpace(Buscar) || p.Nombre.Contains(Buscar, StringComparison.OrdinalIgnoreCase));
+            .Where(p => selectedCategoriaId == 0 || p.CategoriaId == selectedCategoriaId)
+            .Where(p => string.IsNullOrWhiteSpace(Buscar) || p.Nombre.Contains(Buscar, StringComparison.OrdinalIgnoreCase))
+            .Where(p => precioMin is null || p.PrecioEfectivo >= precioMin)
+            .Where(p => precioMax is null || p.PrecioEfectivo <= precioMax)
+            .Where(p => !soloOferta || p.EnOferta)
+            .Where(p => tallasSeleccionadas.Count == 0 || p.Variantes.Any(v => tallasSeleccionadas.Contains(v.Talla)))
+            .Where(p => coloresSeleccionados.Count == 0 || p.Variantes.Any(v => coloresSeleccionados.Contains(v.Color)));
 
     protected override async Task OnInitializedAsync()
     {
-        selectedCategoriaId = CategoriaId;
-
-        categorias = await Db.Categorias.ToListAsync();
         productos = await Db.Productos
             .Include(p => p.Categoria)
             .Include(p => p.ImagenesAdicionales)
+            .Include(p => p.Variantes)
             .ToListAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // CategoriaId llega vía query string: el router reutiliza esta misma instancia al navegar
+        // entre categorías (no vuelve a llamar OnInitializedAsync), así que hay que releer el
+        // parámetro acá en cada navegación para que el filtro no quede pegado en el valor viejo.
+        selectedCategoriaId = CategoriaId ?? 0;
+    }
+
+    private void ToggleTalla(string talla)
+    {
+        if (!tallasSeleccionadas.Add(talla))
+        {
+            tallasSeleccionadas.Remove(talla);
+        }
+    }
+
+    private void ToggleColor(string color)
+    {
+        if (!coloresSeleccionados.Add(color))
+        {
+            coloresSeleccionados.Remove(color);
+        }
+    }
+
+    private void LimpiarFiltros()
+    {
+        selectedCategoriaId = 0;
+        precioMin = null;
+        precioMax = null;
+        soloOferta = false;
+        tallasSeleccionadas.Clear();
+        coloresSeleccionados.Clear();
     }
 }
