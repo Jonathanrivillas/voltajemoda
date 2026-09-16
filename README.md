@@ -176,7 +176,7 @@ Antes de escribir un nuevo bloque de "cargando" o "no hay resultados", usa estos
 
 - **Registro por correo**: pide nombre completo, correo, teléfono, contraseña y una dirección de envío en el mismo formulario, además de aceptar los [Términos y Condiciones](./Components/Pages/Terminos.razor) (placeholder, ver backlog). Requiere confirmar el correo antes de poder iniciar sesión (`RequireConfirmedAccount = true`).
 - **Login con Google**: opcional — solo aparece si están configuradas las credenciales (`Authentication:Google:ClientId` / `Authentication:Google:ClientSecret`, vía `dotnet user-secrets` en local o variables de entorno `Authentication__Google__ClientId` / `Authentication__Google__ClientSecret` en Azure App Service). Si el correo de la cuenta de Google ya tiene una cuenta local registrada por contraseña, se **vincula automáticamente** a esa cuenta en vez de fallar por correo duplicado (`Components/Account/Pages/ExternalLogin.razor`). Fuerza el selector de cuenta de Google en cada intento (`prompt=select_account` en `Program.cs`).
-- **Política de contraseña**: mínimo 10 caracteres, con mayúscula, minúscula, número y símbolo. Bloqueo de cuenta tras 5 intentos fallidos por 10 minutos.
+- **Política de contraseña**: mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo. Bloqueo de cuenta tras 5 intentos fallidos por 10 minutos.
 - **Rate limiting**: máximo 10 solicitudes por minuto por IP en cualquier ruta `/Account/*`, para mitigar fuerza bruta/credential stuffing.
 - **Passkeys**: el código de gestión sigue en `Cuenta > Seguridad`, pero **no** hay entrada de login por passkey en `/Account/Login` (se quitó por UX — Google la reemplaza).
 

@@ -109,7 +109,7 @@
         <div>
             <h2 class="account-card-title">Contraseña</h2>
             <p class="account-card-subtitle">
-                @(hasPassword ? "Usa una contraseña de al menos 10 caracteres que no uses en otros sitios." : "No tienes una contraseña local: agrega una para poder iniciar sesión sin depender de un inicio de sesión externo.")
+                @(hasPassword ? "Usa una contraseña de al menos 8 caracteres que no uses en otros sitios." : "No tienes una contraseña local: agrega una para poder iniciar sesión sin depender de un inicio de sesión externo.")
             </p>
         </div>
     </div>
@@ -358,7 +358,7 @@
         public string OldPassword { get; set; } = "";
 
         [Required]
-        [StringLength(100, ErrorMessage = "{0} debe tener entre {2} y {1} caracteres.", MinimumLength = 10)]
+        [StringLength(100, ErrorMessage = "{0} debe tener entre {2} y {1} caracteres.", MinimumLength = 8)]
         [DataType(DataType.Password)]
         [Display(Name = "Nueva contraseña")]
         public string NewPassword { get; set; } = "";
@@ -372,7 +372,7 @@
     private sealed class EstablecerContrasenaInputModel
     {
         [Required]
-        [StringLength(100, ErrorMessage = "{0} debe tener entre {2} y {1} caracteres.", MinimumLength = 10)]
+        [StringLength(100, ErrorMessage = "{0} debe tener entre {2} y {1} caracteres.", MinimumLength = 8)]
         [DataType(DataType.Password)]
         [Display(Name = "Nueva contraseña")]
         public string? NewPassword { get; set; }
