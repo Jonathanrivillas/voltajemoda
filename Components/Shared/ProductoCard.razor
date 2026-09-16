@@ -22,6 +22,8 @@
             <img src="@imagenes[i]" class="producto-card-img @(i == 0 ? "activa" : "")" alt="@Producto.Nombre" />
         }
 
+        <a href="/productos/@Producto.Id" class="producto-card-media-link" aria-label="@Producto.Nombre"></a>
+
         @if (tieneVariasImagenes)
         {
             <button type="button" class="producto-img-nav producto-img-nav-prev" aria-label="Imagen anterior">
@@ -34,7 +36,9 @@
     </div>
 
     <div class="card-body d-flex flex-column">
-        <h5 class="card-title producto-card-title">@Producto.Nombre</h5>
+        <a href="/productos/@Producto.Id" class="producto-card-title-link">
+            <h5 class="card-title producto-card-title">@Producto.Nombre</h5>
+        </a>
         @if (MostrarCategoria && Producto.Categoria is not null)
         {
             <p class="card-text text-muted small mb-1">@Producto.Categoria.Nombre</p>
@@ -47,7 +51,7 @@
             }
             else
             {
-                <span class="producto-precio-oferta">@Producto.Precio.ToString("C")</span>
+                <span class="producto-precio-normal">@Producto.Precio.ToString("C")</span>
             }
         </p>
         <a href="/productos/@Producto.Id" class="btn btn-dark producto-card-btn mt-auto">
