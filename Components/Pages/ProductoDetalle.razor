@@ -10,6 +10,7 @@
 
 @inject ApplicationDbContext Db
 @inject CarritoService CarritoService
+@inject CarritoEstadoService CarritoEstado
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>@(producto?.Nombre ?? "Producto")</PageTitle>
@@ -306,5 +307,6 @@ else
 
         await Db.SaveChangesAsync();
         mensaje = "Producto agregado al carrito.";
+        CarritoEstado.Notificar();
     }
 }

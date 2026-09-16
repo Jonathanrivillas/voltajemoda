@@ -1,11 +1,18 @@
 @implements IDisposable
+@rendermode InteractiveServer
 
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
 @using VoltajeModa.Data
 @using VoltajeModa.Models
+@using VoltajeModa.Services
 
 @inject NavigationManager NavigationManager
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject CarritoService CarritoService
+@inject CarritoEstadoService CarritoEstado
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="promo-bar" id="promoBar">Suscríbete y obtén el 15%DTO. en tu primera compra</div>
 
@@ -19,6 +26,9 @@
 
         <div class="collapse navbar-collapse" id="navbarMenu">
             <ul class="navbar-nav mx-lg-auto mb-2 mb-lg-0 voltaje-nav-links">
+                <li class="nav-item">
+                    <a class="nav-link @(EsCatalogoGeneral ? "active" : "")" href="productos">Catálogo</a>
+                </li>
                 @foreach (var categoria in categorias)
                 {
                     <li class="nav-item">
@@ -71,22 +81,38 @@
                     </ul>
                 </div>
 
-                <a class="voltaje-icon-btn" href="carrito" aria-label="Carrito">
+                <button type="button" class="voltaje-icon-btn position-relative" @onclick="AbrirCarrito" aria-label="Carrito">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
                         <path d="m2.05 2.05 1.099-.028a1 1 0 0 1 1.008.815l2.69 14.347A1 1 0 0 0 7.83 18H18" />
                         <path d="M4.563 5h16.435a1 1 0 0 1 .981 1.204l-1.026 6.226A2 2 0 0 1 18.962 14H6.25" />
                         <circle cx="18" cy="20" r="2" />
                         <circle cx="8" cy="20" r="2" />
                     </svg>
-                </a>
+                    @if (cantidadCarrito > 0)
+                    {
+                        <span class="cart-badge">@cantidadCarrito</span>
+                    }
+                </button>
             </div>
         </div>
     </div>
 </nav>
 
+<CarritoDrawer @ref="carritoDrawer" />
+
 @code {
     private string? currentUrl;
     private List<Categoria> categorias = new();
+    private CarritoDrawer? carritoDrawer;
+    private int cantidadCarrito;
+
+    // NavLink con Match="All" no distingue diferencias de query string de forma confiable acá
+    // (queda "active" aunque haya un categoriaId en la URL), así que el estado de "Catálogo" se
+    // calcula a mano a partir de currentUrl en vez de depender de su matching automático.
+    private bool EsCatalogoGeneral =>
+        currentUrl is not null
+        && (currentUrl == "productos" || currentUrl.StartsWith("productos?"))
+        && !currentUrl.Contains("categoriaId=", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -95,6 +121,50 @@
 
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
+        CarritoEstado.Cambio += OnCarritoCambio;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // La cuenta de items del carrito depende de ObtenerOCrearCarritoAsync, que para
+            // invitados lee un id anónimo desde el almacenamiento local del navegador (JS interop):
+            // eso no está disponible durante el prerender, por eso se carga recién acá.
+            await ActualizarContadorAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ActualizarContadorAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var usuarioId = authState.User.Identity?.IsAuthenticated == true
+            ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            : null;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
+        cantidadCarrito = await db.CarritoItems
+            .Where(i => i.CarritoId == carrito.Id)
+            .SumAsync(i => i.Cantidad);
+    }
+
+    private async void OnCarritoCambio()
+    {
+        await InvokeAsync(async () =>
+        {
+            await ActualizarContadorAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task AbrirCarrito()
+    {
+        if (carritoDrawer is not null)
+        {
+            await carritoDrawer.AbrirAsync();
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -106,5 +176,6 @@
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        CarritoEstado.Cambio -= OnCarritoCambio;
     }
 }

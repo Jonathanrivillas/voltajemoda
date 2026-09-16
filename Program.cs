@@ -115,6 +115,7 @@ else
 }
 
 builder.Services.AddScoped<CarritoService>();
+builder.Services.AddScoped<CarritoEstadoService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<InventarioService>();
 builder.Services.AddScoped<EstadisticasService>();
