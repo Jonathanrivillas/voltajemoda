@@ -59,7 +59,7 @@
                 <button type="button" class="auth-password-toggle" data-toggle-password="Input.Password" aria-pressed="false" aria-label="Mostrar u ocultar la contraseña">Mostrar</button>
                 <ValidationMessage For="() => Input.Password" class="text-danger" />
             </div>
-            <p class="auth-hint">Mínimo 10 caracteres, con mayúscula, minúscula, número y símbolo.</p>
+            <p class="auth-hint">Mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo.</p>
 
             <div class="form-floating mb-3 auth-password-field">
                 <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
@@ -226,7 +226,7 @@
         public string Telefono { get; set; } = "";
 
         [Required(ErrorMessage = "Ingresa una contraseña.")]
-        [StringLength(100, ErrorMessage = "La contraseña debe tener entre {2} y {1} caracteres.", MinimumLength = 10)]
+        [StringLength(100, ErrorMessage = "La contraseña debe tener entre {2} y {1} caracteres.", MinimumLength = 8)]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; } = "";
