@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using VoltajeModa.Components;
 using VoltajeModa.Components.Account;
 using VoltajeModa.Data;
+using VoltajeModa.Infraestructura.Extensiones;
 using VoltajeModa.Services;
 
 var culturaPorDefecto = new CultureInfo("es-CO");
@@ -120,6 +121,17 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<InventarioService>();
 builder.Services.AddScoped<EstadisticasService>();
 
+builder.Services.AddArquitecturaHexagonal();
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo { Title = "VoltajeModa API", Version = "v1" });
+    });
+}
+
 builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(365));
 
 var app = builder.Build();
@@ -153,6 +165,8 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 else
 {
@@ -174,6 +188,8 @@ app.UseRateLimiter();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.MapControllers();
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();

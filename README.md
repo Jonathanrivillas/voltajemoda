@@ -112,9 +112,15 @@ Components/
   Layout/         MainLayout, NavMenu, Footer, AdminLayout
   Shared/         Componentes reutilizables sin ruta propia (ej. ProductoCard)
   Shared/Admin/   Componentes reutilizables solo del panel admin (AdminCard, AdminStatCard, ConfirmDialog, StockBadge, EstadoPedidoBadge)
+
+Core/             API REST — dominio (Core/Dominio) y casos de uso (Core/Aplicacion), ver API.md
+Infraestructura/  API REST — repositorios EF Core y configuración de inyección de dependencias, ver API.md
+Presentacion/     API REST — controladores, DTOs y filtros HTTP, ver API.md
 ```
 
-Como el proyecto es un solo Blazor Web App, una misma página `.razor` normalmente mezcla ambas capas: la parte "backend" (consultas EF Core, validaciones, reglas de negocio en el bloque `@code`) y la parte "frontend" (el marcado HTML/Razor de arriba). No hay una API separada que consumir — Blazor Server llama directo a `ApplicationDbContext`/servicios desde el propio componente.
+Como el proyecto es un solo Blazor Web App, una misma página `.razor` normalmente mezcla ambas capas: la parte "backend" (consultas EF Core, validaciones, reglas de negocio en el bloque `@code`) y la parte "frontend" (el marcado HTML/Razor de arriba). Blazor Server llama directo a `ApplicationDbContext`/servicios desde el propio componente — no necesita la API para nada.
+
+Además del sitio Blazor, el proyecto expone una **API REST** bajo `/api/...` (con arquitectura hexagonal, en `Core/`, `Infraestructura/`, `Presentacion/`), pensada para consumidores que no son el navegador mostrando las páginas `.razor`. Ver la guía completa en [API.md](./API.md).
 
 ## Cómo agregar una nueva vista (página)
 
