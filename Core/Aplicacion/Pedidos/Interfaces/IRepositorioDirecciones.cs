@@ -9,4 +9,5 @@ public interface IRepositorioDirecciones
     Task<IReadOnlyList<Direccion>> ListarPorTitularAsync(Titular titular, CancellationToken ct);
     Task AgregarAsync(Direccion direccion, CancellationToken ct);
     Task ActualizarAsync(Direccion direccion, CancellationToken ct);
+    Task EliminarAsync(int id, CancellationToken ct);
 }

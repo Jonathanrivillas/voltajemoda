@@ -25,5 +25,15 @@ public class Categoria
 
     internal static Categoria Reconstituir(int id, string nombre) => new(id, nombre);
 
+    public void ActualizarNombre(string nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            throw new ProductoInvalidoException("El nombre de la categoría no puede estar vacío.");
+        }
+
+        Nombre = nombre.Trim();
+    }
+
     internal void AsignarId(int id) => Id = id;
 }

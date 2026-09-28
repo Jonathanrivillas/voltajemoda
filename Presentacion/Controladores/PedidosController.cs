@@ -18,17 +18,20 @@ public class PedidosController : ControllerBase
     private readonly ListarMisPedidosCasoDeUso _listarMios;
     private readonly ListarPedidosCasoDeUso _listarTodos;
     private readonly CambiarEstadoPedidoCasoDeUso _cambiarEstado;
+    private readonly EliminarPedidoCasoDeUso _eliminar;
     private readonly ContextoIdentidadHttp _identidad;
 
     public PedidosController(
         CrearPedidoDesdeCarritoCasoDeUso crear, ObtenerPedidoPorIdCasoDeUso obtenerPorId, ListarMisPedidosCasoDeUso listarMios,
-        ListarPedidosCasoDeUso listarTodos, CambiarEstadoPedidoCasoDeUso cambiarEstado, ContextoIdentidadHttp identidad)
+        ListarPedidosCasoDeUso listarTodos, CambiarEstadoPedidoCasoDeUso cambiarEstado, EliminarPedidoCasoDeUso eliminar,
+        ContextoIdentidadHttp identidad)
     {
         _crear = crear;
         _obtenerPorId = obtenerPorId;
         _listarMios = listarMios;
         _listarTodos = listarTodos;
         _cambiarEstado = cambiarEstado;
+        _eliminar = eliminar;
         _identidad = identidad;
     }
 
@@ -76,5 +79,13 @@ public class PedidosController : ControllerBase
     {
         var pedido = await _cambiarEstado.EjecutarAsync(id, request.NuevoEstado, ct);
         return Ok(PedidoDetalleDto.DesdeDominio(pedido));
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> Eliminar(int id, CancellationToken ct)
+    {
+        await _eliminar.EjecutarAsync(id, ct);
+        return NoContent();
     }
 }

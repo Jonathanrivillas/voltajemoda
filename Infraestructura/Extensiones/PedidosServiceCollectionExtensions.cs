@@ -27,6 +27,8 @@ public static class PedidosServiceCollectionExtensions
         services.AddScoped<CrearDireccionCasoDeUso>();
         services.AddScoped<ListarMisDireccionesCasoDeUso>();
         services.AddScoped<MarcarDireccionPredeterminadaCasoDeUso>();
+        services.AddScoped<EliminarDireccionCasoDeUso>();
+        services.AddScoped<EliminarPedidoCasoDeUso>();
 
         return services;
     }

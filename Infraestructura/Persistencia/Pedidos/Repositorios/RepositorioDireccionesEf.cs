@@ -52,6 +52,15 @@ public class RepositorioDireccionesEf : IRepositorioDirecciones
         DireccionMapeador.VolcarEnEntidad(direccion, entidad);
     }
 
+    public async Task EliminarAsync(int id, CancellationToken ct)
+    {
+        var entidad = await _context.Direcciones.FindAsync(new object?[] { id }, ct);
+        if (entidad is not null)
+        {
+            _context.Direcciones.Remove(entidad);
+        }
+    }
+
     private void SuscribirAsignacionDeId(Direccion direccion, EfModels.Direccion entidad)
     {
         void Handler(object? sender, SavedChangesEventArgs e)

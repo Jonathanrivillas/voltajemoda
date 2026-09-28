@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltajeModa.Core.Aplicacion.Productos.CasosDeUso;
 using VoltajeModa.Core.Aplicacion.Productos.Dtos;
@@ -20,11 +21,17 @@ public class ProductosController : ControllerBase
     private readonly QuitarOfertaProductoCasoDeUso _quitarOferta;
     private readonly AgregarVarianteCasoDeUso _agregarVariante;
     private readonly AgregarImagenCasoDeUso _agregarImagen;
+    private readonly EliminarVarianteCasoDeUso _eliminarVariante;
+    private readonly EliminarImagenCasoDeUso _eliminarImagen;
+    private readonly SubirImagenPrincipalCasoDeUso _subirImagenPrincipal;
+    private readonly SubirImagenAdicionalCasoDeUso _subirImagenAdicional;
 
     public ProductosController(
         CrearProductoCasoDeUso crear, ActualizarProductoCasoDeUso actualizar, ObtenerProductoPorIdCasoDeUso obtenerPorId,
         ListarProductosCasoDeUso listar, EliminarProductoCasoDeUso eliminar, PonerProductoEnOfertaCasoDeUso ponerEnOferta,
-        QuitarOfertaProductoCasoDeUso quitarOferta, AgregarVarianteCasoDeUso agregarVariante, AgregarImagenCasoDeUso agregarImagen)
+        QuitarOfertaProductoCasoDeUso quitarOferta, AgregarVarianteCasoDeUso agregarVariante, AgregarImagenCasoDeUso agregarImagen,
+        EliminarVarianteCasoDeUso eliminarVariante, EliminarImagenCasoDeUso eliminarImagen,
+        SubirImagenPrincipalCasoDeUso subirImagenPrincipal, SubirImagenAdicionalCasoDeUso subirImagenAdicional)
     {
         _crear = crear;
         _actualizar = actualizar;
@@ -35,6 +42,10 @@ public class ProductosController : ControllerBase
         _quitarOferta = quitarOferta;
         _agregarVariante = agregarVariante;
         _agregarImagen = agregarImagen;
+        _eliminarVariante = eliminarVariante;
+        _eliminarImagen = eliminarImagen;
+        _subirImagenPrincipal = subirImagenPrincipal;
+        _subirImagenAdicional = subirImagenAdicional;
     }
 
     [HttpGet]
@@ -119,6 +130,46 @@ public class ProductosController : ControllerBase
     public async Task<ActionResult<ImagenDto>> AgregarImagen(int id, [FromBody] CrearImagenRequest request, CancellationToken ct)
     {
         var imagen = await _agregarImagen.EjecutarAsync(id, request.Url, request.Orden, ct);
+        return CreatedAtAction(nameof(ObtenerPorId), new { id }, ImagenDto.DesdeDominio(imagen));
+    }
+
+    [HttpDelete("{id:int}/variantes/{varianteId:int}")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> EliminarVariante(int id, int varianteId, CancellationToken ct)
+    {
+        await _eliminarVariante.EjecutarAsync(id, varianteId, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}/imagenes/{imagenId:int}")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> EliminarImagen(int id, int imagenId, CancellationToken ct)
+    {
+        await _eliminarImagen.EjecutarAsync(id, imagenId, ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:int}/imagen-principal")]
+    [Authorize(Roles = "Administrador")]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<ProductoDetalleDto>> SubirImagenPrincipal(int id, IFormFile archivo, CancellationToken ct)
+    {
+        await using var contenido = archivo.OpenReadStream();
+        var producto = await _subirImagenPrincipal.EjecutarAsync(
+            id, contenido, Path.GetExtension(archivo.FileName), archivo.Length, ct);
+
+        return Ok(ProductoDetalleDto.DesdeDominio(producto));
+    }
+
+    [HttpPost("{id:int}/imagenes/archivo")]
+    [Authorize(Roles = "Administrador")]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<ImagenDto>> SubirImagenAdicional(int id, IFormFile archivo, [FromForm] int orden, CancellationToken ct)
+    {
+        await using var contenido = archivo.OpenReadStream();
+        var imagen = await _subirImagenAdicional.EjecutarAsync(
+            id, contenido, Path.GetExtension(archivo.FileName), archivo.Length, orden, ct);
+
         return CreatedAtAction(nameof(ObtenerPorId), new { id }, ImagenDto.DesdeDominio(imagen));
     }
 }

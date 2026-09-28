@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b6e2a6b0-2f4a-4c8a-9b1a-voltajemodaapi",
     "name": "VoltajeModa API",
-    "description": "Coleccion de pruebas para la API REST de VoltajeModa. La carpeta 1 prueba el flujo completo de compra como invitado. Las carpetas 2 a 7 prueban cada endpoint por separado, incluyendo casos de exito y casos de error (400/404/409/401). Los endpoints de Administrador (crear/editar productos, inventario, listar todos los pedidos) solo pueden devolver 401 desde aqui, porque el login de VoltajeModa usa un formulario con proteccion antifalsificacion (antiforgery) que no es practico automatizar desde Postman. Para probarlos de verdad: loguate como admin@voltajemoda.com / Admin1234! en el navegador, copia la cookie '.AspNetCore.Identity.Application' desde las herramientas de desarrollador (F12 > Application > Cookies) y pegala en Postman en la pestana Cookies del request.",
+    "description": "Coleccion de pruebas para la API REST de VoltajeModa. La carpeta 1 prueba el flujo completo de compra como invitado. Las carpetas 2 a 7 prueban cada endpoint por separado, incluyendo casos de exito y casos de error (400/404/409/401), incluidas las eliminaciones de categoria/variante/imagen/pedido/direccion y la subida de archivos de imagen. Los endpoints de Administrador (crear/editar/borrar productos y categorias, inventario, listar todos los pedidos) solo pueden devolver 401 desde aqui, porque el login de VoltajeModa usa un formulario con proteccion antifalsificacion (antiforgery) que no es practico automatizar desde Postman. Para probarlos de verdad: loguate como admin@voltajemoda.com / Admin123! en el navegador, copia la cookie '.AspNetCore.Identity.Application' desde las herramientas de desarrollador (F12 > Application > Cookies) y pegala en Postman en la pestana Cookies del request.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,7 +11,8 @@
     { "key": "productoVarianteId", "value": "", "type": "string" },
     { "key": "stockAntes", "value": "", "type": "string" },
     { "key": "direccionId", "value": "", "type": "string" },
-    { "key": "pedidoId", "value": "", "type": "string" }
+    { "key": "pedidoId", "value": "", "type": "string" },
+    { "key": "direccionLibreId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -408,6 +409,79 @@
             "url": { "raw": "{{baseUrl}}/api/productos/{{productoId}}/variantes", "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}", "variantes"] }
           },
           "response": []
+        },
+        {
+          "name": "2.9 Eliminar variante sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}/variantes/{{productoVarianteId}}",
+              "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}", "variantes", "{{productoVarianteId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.10 Eliminar imagen sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}/imagenes/1",
+              "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}", "imagenes", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.11 Subir imagen principal sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "archivo", "type": "file", "src": [] }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}/imagen-principal",
+              "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}", "imagen-principal"]
+            },
+            "description": "Para probarlo de verdad (con sesion admin): en la pestana Body, hace click en el campo 'archivo' y elegi un archivo de imagen real de tu disco antes de mandar la request."
+          },
+          "response": []
+        },
+        {
+          "name": "2.12 Subir imagen adicional sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "archivo", "type": "file", "src": [] },
+                { "key": "orden", "type": "text", "value": "1" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}/imagenes/archivo",
+              "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}", "imagenes", "archivo"]
+            },
+            "description": "Para probarlo de verdad (con sesion admin): en la pestana Body, hace click en el campo 'archivo' y elegi un archivo de imagen real de tu disco antes de mandar la request."
+          },
+          "response": []
         }
       ]
     },
@@ -449,6 +523,31 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Categoria de prueba\"\n}", "options": { "raw": { "language": "json" } } },
             "url": { "raw": "{{baseUrl}}/api/categorias", "host": ["{{baseUrl}}"], "path": ["api", "categorias"] }
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 Editar categoria sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Categoria Editada\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/categorias/1", "host": ["{{baseUrl}}"], "path": ["api", "categorias", "1"] }
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 Eliminar categoria sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/categorias/1", "host": ["{{baseUrl}}"], "path": ["api", "categorias", "1"] }
           },
           "response": []
         }
@@ -654,6 +753,18 @@
             "url": { "raw": "{{baseUrl}}/api/pedidos/{{pedidoId}}/estado", "host": ["{{baseUrl}}"], "path": ["api", "pedidos", "{{pedidoId}}", "estado"] }
           },
           "response": []
+        },
+        {
+          "name": "5.7 Eliminar pedido sin sesion (admin) -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pedidos/{{pedidoId}}", "host": ["{{baseUrl}}"], "path": ["api", "pedidos", "{{pedidoId}}"] }
+          },
+          "response": []
         }
       ]
     },
@@ -704,6 +815,67 @@
             "method": "PATCH",
             "header": [],
             "url": { "raw": "{{baseUrl}}/api/direcciones/999999/predeterminada", "host": ["{{baseUrl}}"], "path": ["api", "direcciones", "999999", "predeterminada"] }
+          },
+          "response": []
+        },
+        {
+          "name": "6.4 Crear direccion libre (para probar que se puede borrar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('direccionLibreId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"calle\": \"Calle Libre 1\",\n  \"ciudad\": \"Bogota\",\n  \"codigoPostal\": \"110111\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/direcciones", "host": ["{{baseUrl}}"], "path": ["api", "direcciones"] }
+          },
+          "response": []
+        },
+        {
+          "name": "6.5 Eliminar direccion libre -> 204",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/direcciones/{{direccionLibreId}}", "host": ["{{baseUrl}}"], "path": ["api", "direcciones", "{{direccionLibreId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "6.6 Eliminar direccion EN USO (la de la carpeta 1, ya tiene un pedido) -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('El mensaje menciona que tiene pedidos asociados', () => pm.expect(body.title).to.equal('DireccionEnUsoException'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/direcciones/{{direccionId}}", "host": ["{{baseUrl}}"], "path": ["api", "direcciones", "{{direccionId}}"] }
           },
           "response": []
         }

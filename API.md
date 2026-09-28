@@ -58,11 +58,17 @@ Maneja el catálogo: productos, sus variantes (talla/color con stock), sus imág
 | Borrar un producto | `DELETE /api/productos/{id}` | Solo Administrador |
 | Poner/quitar oferta | `POST` / `DELETE /api/productos/{id}/oferta` | Solo Administrador |
 | Agregar una variante (talla/color) | `POST /api/productos/{id}/variantes` | Solo Administrador |
-| Agregar una imagen | `POST /api/productos/{id}/imagenes` | Solo Administrador |
+| Eliminar una variante | `DELETE /api/productos/{id}/variantes/{varianteId}` | Solo Administrador |
+| Agregar una imagen (por URL) | `POST /api/productos/{id}/imagenes` | Solo Administrador |
+| Eliminar una imagen | `DELETE /api/productos/{id}/imagenes/{imagenId}` | Solo Administrador |
+| Subir el archivo de la imagen principal | `POST /api/productos/{id}/imagen-principal` (multipart) | Solo Administrador |
+| Subir el archivo de una imagen adicional | `POST /api/productos/{id}/imagenes/archivo` (multipart) | Solo Administrador |
 | Ver categorías | `GET /api/categorias` | Cualquiera |
 | Crear categoría | `POST /api/categorias` | Solo Administrador |
+| Editar categoría | `PUT /api/categorias/{id}` | Solo Administrador |
+| Eliminar categoría | `DELETE /api/categorias/{id}` | Solo Administrador |
 
-Reglas de negocio que la API hace cumplir sola (sin que el que la usa tenga que acordarse): el precio tiene que ser mayor a 0, el precio de oferta tiene que ser menor al precio de lista, no puede haber dos variantes con la misma combinación de talla y color.
+Reglas de negocio que la API hace cumplir sola (sin que el que la usa tenga que acordarse): el precio tiene que ser mayor a 0, el precio de oferta tiene que ser menor al precio de lista, no puede haber dos variantes con la misma combinación de talla y color, no se puede eliminar una categoría que todavía tiene productos, y no se puede eliminar una variante que está en un carrito, tiene pedidos activos (no cancelados) o movimientos de stock registrados. Las imágenes subidas por archivo aceptan JPG/PNG/WEBP/GIF hasta 5 MB, y se guardan en `wwwroot/uploads/productos/` con un nombre generado automáticamente — igual que hace hoy el panel de administración.
 
 ### 4.2 Carrito (`/api/carrito`)
 
@@ -86,9 +92,11 @@ Todos estos endpoints son públicos porque **el carrito funciona con o sin cuent
 | Ver el detalle de un pedido puntual | `GET /api/pedidos/{id}` | El dueño del pedido, o un Administrador |
 | Ver todos los pedidos (con filtros) | `GET /api/pedidos` | Solo Administrador |
 | Cambiar el estado de un pedido | `PATCH /api/pedidos/{id}/estado` | Solo Administrador |
+| Eliminar un pedido (solo si está `Cancelado`) | `DELETE /api/pedidos/{id}` | Solo Administrador |
 | Ver mis direcciones | `GET /api/direcciones` | Cualquiera |
 | Agregar una dirección | `POST /api/direcciones` | Cualquiera |
 | Marcar una dirección como predeterminada | `PATCH /api/direcciones/{id}/predeterminada` | Cualquiera |
+| Eliminar una dirección (solo si no tiene pedidos asociados) | `DELETE /api/direcciones/{id}` | Cualquiera |
 
 **Qué pasa exactamente cuando creás un pedido (`POST /api/pedidos`)** — este es el flujo más importante de toda la API:
 
@@ -125,9 +133,9 @@ Esta es la parte más particular de este proyecto: en VoltajeModa **podés compr
 
 La API **no inventó un sistema de login propio** — reutiliza el mismo que ya tenía el sitio (ASP.NET Core Identity, con los roles `Cliente` y `Administrador`). En la práctica:
 
-- **Sin restricciones**: consultar el catálogo, categorías, tu propio carrito, tus propios pedidos y direcciones.
+- **Sin restricciones**: consultar el catálogo, categorías, tu propio carrito, tus propios pedidos y direcciones (incluida su eliminación).
 - **Requiere estar logueado**: fusionar el carrito de invitado.
-- **Requiere ser Administrador**: crear/editar/borrar productos y categorías, todo el módulo de inventario, ver todos los pedidos y cambiarles el estado.
+- **Requiere ser Administrador**: crear/editar/borrar productos y categorías, subir imágenes, agregar/quitar variantes, todo el módulo de inventario, ver todos los pedidos, cambiarles el estado y eliminar los que estén cancelados.
 
 Si probás un endpoint de Administrador sin estar logueado como tal, la API responde `401 No autorizado` (o `403` si estás logueado pero con otro rol) en vez de dejarte pasar.
 

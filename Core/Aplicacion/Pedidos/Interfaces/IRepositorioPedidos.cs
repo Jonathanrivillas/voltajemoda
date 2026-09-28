@@ -11,4 +11,6 @@ public interface IRepositorioPedidos
     Task<(IReadOnlyList<Pedido> Items, int Total)> ListarTodosAsync(FiltroPedidos filtro, CancellationToken ct);
     Task AgregarAsync(Pedido pedido, CancellationToken ct);
     Task ActualizarAsync(Pedido pedido, CancellationToken ct);
+    Task EliminarAsync(int id, CancellationToken ct);
+    Task<bool> ExisteAlgunoConDireccionAsync(int direccionId, CancellationToken ct);
 }

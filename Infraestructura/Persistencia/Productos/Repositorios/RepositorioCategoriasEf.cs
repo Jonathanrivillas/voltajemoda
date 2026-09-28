@@ -36,6 +36,27 @@ public class RepositorioCategoriasEf : IRepositorioCategorias
         return Task.CompletedTask;
     }
 
+    public async Task ActualizarAsync(Categoria categoria, CancellationToken ct)
+    {
+        var entidad = await _context.Categorias.FirstOrDefaultAsync(c => c.Id == categoria.Id, ct);
+        if (entidad is not null)
+        {
+            entidad.Nombre = categoria.Nombre;
+        }
+    }
+
+    public async Task EliminarAsync(int id, CancellationToken ct)
+    {
+        var entidad = await _context.Categorias.FindAsync(new object?[] { id }, ct);
+        if (entidad is not null)
+        {
+            _context.Categorias.Remove(entidad);
+        }
+    }
+
+    public Task<int> ContarProductosAsync(int categoriaId, CancellationToken ct) =>
+        _context.Productos.CountAsync(p => p.CategoriaId == categoriaId, ct);
+
     private void SuscribirAsignacionDeId(Categoria categoria, EfModels.Categoria entidad)
     {
         void Handler(object? sender, SavedChangesEventArgs e)

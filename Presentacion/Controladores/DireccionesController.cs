@@ -13,15 +13,17 @@ public class DireccionesController : ControllerBase
     private readonly CrearDireccionCasoDeUso _crear;
     private readonly ListarMisDireccionesCasoDeUso _listarMias;
     private readonly MarcarDireccionPredeterminadaCasoDeUso _marcarPredeterminada;
+    private readonly EliminarDireccionCasoDeUso _eliminar;
     private readonly ContextoIdentidadHttp _identidad;
 
     public DireccionesController(
         CrearDireccionCasoDeUso crear, ListarMisDireccionesCasoDeUso listarMias,
-        MarcarDireccionPredeterminadaCasoDeUso marcarPredeterminada, ContextoIdentidadHttp identidad)
+        MarcarDireccionPredeterminadaCasoDeUso marcarPredeterminada, EliminarDireccionCasoDeUso eliminar, ContextoIdentidadHttp identidad)
     {
         _crear = crear;
         _listarMias = listarMias;
         _marcarPredeterminada = marcarPredeterminada;
+        _eliminar = eliminar;
         _identidad = identidad;
     }
 
@@ -50,6 +52,14 @@ public class DireccionesController : ControllerBase
     public async Task<IActionResult> MarcarPredeterminada(int id, CancellationToken ct)
     {
         await _marcarPredeterminada.EjecutarAsync(_identidad.ObtenerOAsignarTitular(), id, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Eliminar(int id, CancellationToken ct)
+    {
+        await _eliminar.EjecutarAsync(_identidad.ObtenerOAsignarTitular(), id, ct);
         return NoContent();
     }
 }

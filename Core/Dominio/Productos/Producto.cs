@@ -145,6 +145,32 @@ public class Producto
         return imagen;
     }
 
+    public void EliminarVariante(int varianteId)
+    {
+        var variante = _variantes.FirstOrDefault(v => v.Id == varianteId)
+            ?? throw new VarianteNoEncontradaException(Id, varianteId);
+
+        _variantes.Remove(variante);
+    }
+
+    public void EliminarImagen(int imagenId)
+    {
+        var imagen = _imagenes.FirstOrDefault(i => i.Id == imagenId)
+            ?? throw new ImagenNoEncontradaException(Id, imagenId);
+
+        _imagenes.Remove(imagen);
+    }
+
+    public void ActualizarImagenPrincipal(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new ProductoInvalidoException("La url de la imagen es obligatoria.");
+        }
+
+        ImagenUrl = url.Trim();
+    }
+
     private static void ValidarNombre(string nombre)
     {
         if (string.IsNullOrWhiteSpace(nombre))

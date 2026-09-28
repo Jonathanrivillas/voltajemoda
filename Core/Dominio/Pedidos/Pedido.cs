@@ -73,4 +73,12 @@ public class Pedido
     internal void ReasignarTitular(Titular nuevoTitular) => Titular = nuevoTitular;
 
     internal void AsignarId(int id) => Id = id;
+
+    public void AsegurarEsEliminable()
+    {
+        if (Estado != EstadoPedido.Cancelado)
+        {
+            throw new PedidoNoEliminableException();
+        }
+    }
 }

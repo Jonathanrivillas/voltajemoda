@@ -54,14 +54,32 @@ public static class ProductoMapeador
         entidad.EsNuevo = producto.EsNuevo;
         entidad.CategoriaId = producto.CategoriaId;
 
-        foreach (var variante in producto.Variantes.Where(v => v.Id == 0))
+        SincronizarColeccion(
+            entidad.Variantes, v => v.Id, producto.Variantes.Select(v => v.Id).Where(id => id != 0).ToHashSet(),
+            producto.Variantes.Where(v => v.Id == 0),
+            v => new EfModels.ProductoVariante { Talla = v.Talla, Color = v.Color, Stock = v.Stock });
+
+        SincronizarColeccion(
+            entidad.ImagenesAdicionales, i => i.Id, producto.Imagenes.Select(i => i.Id).Where(id => id != 0).ToHashSet(),
+            producto.Imagenes.Where(i => i.Id == 0),
+            i => new EfModels.ProductoImagen { Url = i.Url, Orden = i.Orden });
+    }
+
+    // Sincroniza una colección hija completa contra el estado actual del agregado de dominio:
+    // elimina (de la colección trackeada) las filas cuyo id ya no está entre los ids vigentes del
+    // dominio, y agrega como filas nuevas las que el dominio tiene con Id == 0 (recién creadas).
+    private static void SincronizarColeccion<TDominio, TEf>(
+        ICollection<TEf> entidadesEf, Func<TEf, int> idDeEf, HashSet<int> idsVigentesEnDominio,
+        IEnumerable<TDominio> nuevasEnDominio, Func<TDominio, TEf> crear)
+    {
+        foreach (var efExistente in entidadesEf.Where(e => !idsVigentesEnDominio.Contains(idDeEf(e))).ToList())
         {
-            entidad.Variantes.Add(new EfModels.ProductoVariante { Talla = variante.Talla, Color = variante.Color, Stock = variante.Stock });
+            entidadesEf.Remove(efExistente);
         }
 
-        foreach (var imagen in producto.Imagenes.Where(i => i.Id == 0))
+        foreach (var nueva in nuevasEnDominio)
         {
-            entidad.ImagenesAdicionales.Add(new EfModels.ProductoImagen { Url = imagen.Url, Orden = imagen.Orden });
+            entidadesEf.Add(crear(nueva));
         }
     }
 }

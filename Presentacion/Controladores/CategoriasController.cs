@@ -11,11 +11,17 @@ public class CategoriasController : ControllerBase
 {
     private readonly ListarCategoriasCasoDeUso _listar;
     private readonly CrearCategoriaCasoDeUso _crear;
+    private readonly ActualizarCategoriaCasoDeUso _actualizar;
+    private readonly EliminarCategoriaCasoDeUso _eliminar;
 
-    public CategoriasController(ListarCategoriasCasoDeUso listar, CrearCategoriaCasoDeUso crear)
+    public CategoriasController(
+        ListarCategoriasCasoDeUso listar, CrearCategoriaCasoDeUso crear,
+        ActualizarCategoriaCasoDeUso actualizar, EliminarCategoriaCasoDeUso eliminar)
     {
         _listar = listar;
         _crear = crear;
+        _actualizar = actualizar;
+        _eliminar = eliminar;
     }
 
     [HttpGet]
@@ -33,5 +39,21 @@ public class CategoriasController : ControllerBase
         var categoria = await _crear.EjecutarAsync(request.Nombre, ct);
         var dto = CategoriaDto.DesdeDominio(categoria);
         return CreatedAtAction(nameof(Listar), dto);
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<ActionResult<CategoriaDto>> Actualizar(int id, [FromBody] ActualizarCategoriaRequest request, CancellationToken ct)
+    {
+        var categoria = await _actualizar.EjecutarAsync(id, request.Nombre, ct);
+        return Ok(CategoriaDto.DesdeDominio(categoria));
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> Eliminar(int id, CancellationToken ct)
+    {
+        await _eliminar.EjecutarAsync(id, ct);
+        return NoContent();
     }
 }

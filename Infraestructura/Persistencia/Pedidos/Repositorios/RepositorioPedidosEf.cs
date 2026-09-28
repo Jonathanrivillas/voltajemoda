@@ -86,6 +86,18 @@ public class RepositorioPedidosEf : IRepositorioPedidos
         PedidoMapeador.VolcarEnEntidad(pedido, entidad);
     }
 
+    public async Task EliminarAsync(int id, CancellationToken ct)
+    {
+        var entidad = await _context.Pedidos.FindAsync(new object?[] { id }, ct);
+        if (entidad is not null)
+        {
+            _context.Pedidos.Remove(entidad);
+        }
+    }
+
+    public Task<bool> ExisteAlgunoConDireccionAsync(int direccionId, CancellationToken ct) =>
+        _context.Pedidos.AnyAsync(p => p.DireccionId == direccionId, ct);
+
     private IQueryable<EfModels.Pedido> Consulta() => _context.Pedidos.Include(p => p.Items);
 
     private void SuscribirAsignacionDeId(Pedido pedido, EfModels.Pedido entidad)

@@ -53,3 +53,5 @@ public record CategoriaDto(int Id, string Nombre)
 }
 
 public record CrearCategoriaRequest(string Nombre);
+
+public record ActualizarCategoriaRequest(string Nombre);
