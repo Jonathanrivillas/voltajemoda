@@ -1,0 +1,759 @@
+{
+  "info": {
+    "_postman_id": "b6e2a6b0-2f4a-4c8a-9b1a-voltajemodaapi",
+    "name": "VoltajeModa API",
+    "description": "Coleccion de pruebas para la API REST de VoltajeModa. La carpeta 1 prueba el flujo completo de compra como invitado. Las carpetas 2 a 7 prueban cada endpoint por separado, incluyendo casos de exito y casos de error (400/404/409/401). Los endpoints de Administrador (crear/editar productos, inventario, listar todos los pedidos) solo pueden devolver 401 desde aqui, porque el login de VoltajeModa usa un formulario con proteccion antifalsificacion (antiforgery) que no es practico automatizar desde Postman. Para probarlos de verdad: loguate como admin@voltajemoda.com / Admin1234! en el navegador, copia la cookie '.AspNetCore.Identity.Application' desde las herramientas de desarrollador (F12 > Application > Cookies) y pegala en Postman en la pestana Cookies del request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5123", "type": "string" },
+    { "key": "productoId", "value": "", "type": "string" },
+    { "key": "productoVarianteId", "value": "", "type": "string" },
+    { "key": "stockAntes", "value": "", "type": "string" },
+    { "key": "direccionId", "value": "", "type": "string" },
+    { "key": "pedidoId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Flujo invitado - compra completa",
+      "item": [
+        {
+          "name": "1.1 Listar productos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve al menos un producto', () => pm.expect(body.items.length).to.be.above(0));",
+                  "pm.collectionVariables.set('productoId', body.items[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/productos", "host": ["{{baseUrl}}"], "path": ["api", "productos"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 Ver detalle del producto (guarda variante y stock)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('El producto tiene al menos una variante', () => pm.expect(body.variantes.length).to.be.above(0));",
+                  "const variante = body.variantes.find(v => v.stock > 0);",
+                  "pm.test('Hay una variante con stock disponible para probar', () => pm.expect(variante).to.not.be.undefined);",
+                  "pm.collectionVariables.set('productoVarianteId', variante.id);",
+                  "pm.collectionVariables.set('stockAntes', variante.stock);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/productos/{{productoId}}", "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 Agregar item al carrito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('El carrito contiene la variante agregada', () => {",
+                  "    const varianteId = parseInt(pm.collectionVariables.get('productoVarianteId'));",
+                  "    const item = body.items.find(i => i.productoVarianteId === varianteId);",
+                  "    pm.expect(item).to.not.be.undefined;",
+                  "    pm.expect(item.cantidad).to.equal(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoVarianteId\": {{productoVarianteId}},\n  \"cantidad\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/carrito/items", "host": ["{{baseUrl}}"], "path": ["api", "carrito", "items"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.4 Ver carrito (debe tener 1 item)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('El carrito tiene exactamente 1 item', () => pm.expect(body.items.length).to.equal(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/carrito", "host": ["{{baseUrl}}"], "path": ["api", "carrito"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.5 Crear direccion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve un id de direccion', () => pm.expect(body.id).to.be.above(0));",
+                  "pm.collectionVariables.set('direccionId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"calle\": \"Cra 10 #20-30\",\n  \"ciudad\": \"Bogota\",\n  \"codigoPostal\": \"110111\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/direcciones", "host": ["{{baseUrl}}"], "path": ["api", "direcciones"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.6 Crear pedido desde el carrito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('El pedido queda en estado Pendiente', () => pm.expect(body.estado).to.equal('Pendiente'));",
+                  "pm.test('El total es mayor a 0', () => pm.expect(body.total).to.be.above(0));",
+                  "pm.test('Tiene 1 item', () => pm.expect(body.items.length).to.equal(1));",
+                  "pm.collectionVariables.set('pedidoId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"direccionId\": {{direccionId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/pedidos", "host": ["{{baseUrl}}"], "path": ["api", "pedidos"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.7 Ver carrito (debe quedar vacio)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('El carrito quedo vacio tras el pedido', () => pm.expect(body.items.length).to.equal(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/carrito", "host": ["{{baseUrl}}"], "path": ["api", "carrito"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.8 Ver mis pedidos (debe aparecer el que se creo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const pedidoId = parseInt(pm.collectionVariables.get('pedidoId'));",
+                  "pm.test('El pedido creado aparece en mis pedidos', () => {",
+                  "    const encontrado = body.find(p => p.id === pedidoId);",
+                  "    pm.expect(encontrado).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pedidos/mios", "host": ["{{baseUrl}}"], "path": ["api", "pedidos", "mios"] }
+          },
+          "response": []
+        },
+        {
+          "name": "1.9 Verificar que el stock se desconto exactamente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const varianteId = parseInt(pm.collectionVariables.get('productoVarianteId'));",
+                  "const stockAntes = parseInt(pm.collectionVariables.get('stockAntes'));",
+                  "const variante = body.variantes.find(v => v.id === varianteId);",
+                  "pm.test('El stock bajo exactamente en 1 unidad', () => pm.expect(variante.stock).to.equal(stockAntes - 1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/productos/{{productoId}}", "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Productos - casos especificos",
+      "item": [
+        {
+          "name": "2.1 Filtrar por destacado=true",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Todos los items devueltos tienen destacado=true', () => {",
+                  "    pm.expect(body.items.every(p => p.destacado === true)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/productos?destacado=true",
+              "host": ["{{baseUrl}}"], "path": ["api", "productos"],
+              "query": [{ "key": "destacado", "value": "true" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 Buscar texto que no existe (lista vacia, no error)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('No devuelve items', () => pm.expect(body.items.length).to.equal(0));",
+                  "pm.test('El total tambien es 0', () => pm.expect(body.total).to.equal(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/productos?busqueda=zzzzznoexisteesteproducto",
+              "host": ["{{baseUrl}}"], "path": ["api", "productos"],
+              "query": [{ "key": "busqueda", "value": "zzzzznoexisteesteproducto" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.3 Producto inexistente -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('El error trae status 404 en el body', () => pm.expect(body.status).to.equal(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/productos/999999", "host": ["{{baseUrl}}"], "path": ["api", "productos", "999999"] }
+          },
+          "response": []
+        },
+        {
+          "name": "2.4 Crear producto sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"x\",\n  \"descripcion\": \"x\",\n  \"precio\": 1,\n  \"imagenUrl\": \"x\",\n  \"categoriaId\": 1,\n  \"destacado\": false,\n  \"esNuevo\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/productos", "host": ["{{baseUrl}}"], "path": ["api", "productos"] }
+          },
+          "response": []
+        },
+        {
+          "name": "2.5 Editar producto sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"x\",\n  \"descripcion\": \"x\",\n  \"precio\": 1,\n  \"imagenUrl\": \"x\",\n  \"categoriaId\": 1,\n  \"destacado\": false,\n  \"esNuevo\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/productos/{{productoId}}", "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "2.6 Borrar producto sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/productos/{{productoId}}", "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "2.7 Poner en oferta sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"precioOferta\": 1\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/productos/{{productoId}}/oferta", "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}", "oferta"] }
+          },
+          "response": []
+        },
+        {
+          "name": "2.8 Agregar variante sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"talla\": \"XL\",\n  \"color\": \"Negro\",\n  \"stockInicial\": 5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/productos/{{productoId}}/variantes", "host": ["{{baseUrl}}"], "path": ["api", "productos", "{{productoId}}", "variantes"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Categorias - casos especificos",
+      "item": [
+        {
+          "name": "3.1 Listar categorias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve un arreglo con al menos una categoria', () => {",
+                  "    pm.expect(Array.isArray(body)).to.be.true;",
+                  "    pm.expect(body.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/categorias", "host": ["{{baseUrl}}"], "path": ["api", "categorias"] }
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Crear categoria sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Categoria de prueba\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/categorias", "host": ["{{baseUrl}}"], "path": ["api", "categorias"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Carrito - casos especificos",
+      "item": [
+        {
+          "name": "4.1 Agregar variante inexistente -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"productoVarianteId\": 999999,\n  \"cantidad\": 1\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/carrito/items", "host": ["{{baseUrl}}"], "path": ["api", "carrito", "items"] }
+          },
+          "response": []
+        },
+        {
+          "name": "4.2 Agregar con cantidad invalida (0) -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoVarianteId\": {{productoVarianteId}},\n  \"cantidad\": 0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/carrito/items", "host": ["{{baseUrl}}"], "path": ["api", "carrito", "items"] }
+          },
+          "response": []
+        },
+        {
+          "name": "4.3 Actualizar cantidad de un item que no esta en el carrito -> 404",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] } }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cantidad\": 3\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/carrito/items/{{productoVarianteId}}",
+              "host": ["{{baseUrl}}"], "path": ["api", "carrito", "items", "{{productoVarianteId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.4 Quitar un item que no esta en el carrito -> 404",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/carrito/items/{{productoVarianteId}}",
+              "host": ["{{baseUrl}}"], "path": ["api", "carrito", "items", "{{productoVarianteId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.5 Vaciar carrito (deja el carrito listo para la carpeta 5)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/carrito", "host": ["{{baseUrl}}"], "path": ["api", "carrito"] }
+          },
+          "response": []
+        },
+        {
+          "name": "4.6 Fusionar carrito de invitado sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/carrito/fusionar", "host": ["{{baseUrl}}"], "path": ["api", "carrito", "fusionar"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Pedidos - casos especificos",
+      "item": [
+        {
+          "name": "5.1 Crear pedido con el carrito vacio -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('El mensaje menciona que el pedido no puede estar vacio', () => {",
+                  "    pm.expect(body.title).to.equal('PedidoVacioException');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"direccionId\": {{direccionId}}\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/pedidos", "host": ["{{baseUrl}}"], "path": ["api", "pedidos"] }
+          },
+          "response": []
+        },
+        {
+          "name": "5.2 Agregar item al carrito (preparacion)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoVarianteId\": {{productoVarianteId}},\n  \"cantidad\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/carrito/items", "host": ["{{baseUrl}}"], "path": ["api", "carrito", "items"] }
+          },
+          "response": []
+        },
+        {
+          "name": "5.3 Crear pedido con direccion inexistente -> 404",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"direccionId\": 999999\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/pedidos", "host": ["{{baseUrl}}"], "path": ["api", "pedidos"] }
+          },
+          "response": []
+        },
+        {
+          "name": "5.4 Ver pedido inexistente -> 404",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pedidos/999999", "host": ["{{baseUrl}}"], "path": ["api", "pedidos", "999999"] }
+          },
+          "response": []
+        },
+        {
+          "name": "5.5 Listar todos los pedidos sin sesion (admin) -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pedidos", "host": ["{{baseUrl}}"], "path": ["api", "pedidos"] }
+          },
+          "response": []
+        },
+        {
+          "name": "5.6 Cambiar estado de un pedido sin sesion (admin) -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nuevoEstado\": \"Enviado\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/pedidos/{{pedidoId}}/estado", "host": ["{{baseUrl}}"], "path": ["api", "pedidos", "{{pedidoId}}", "estado"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Direcciones - casos especificos",
+      "item": [
+        {
+          "name": "6.1 Crear direccion con datos incompletos -> 400",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"calle\": \"\",\n  \"ciudad\": \"\",\n  \"codigoPostal\": \"\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/direcciones", "host": ["{{baseUrl}}"], "path": ["api", "direcciones"] }
+          },
+          "response": []
+        },
+        {
+          "name": "6.2 Listar mis direcciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Aparece al menos la direccion creada en la carpeta 1', () => pm.expect(body.length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/direcciones", "host": ["{{baseUrl}}"], "path": ["api", "direcciones"] }
+          },
+          "response": []
+        },
+        {
+          "name": "6.3 Marcar como predeterminada una direccion inexistente -> 404",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] } }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/direcciones/999999/predeterminada", "host": ["{{baseUrl}}"], "path": ["api", "direcciones", "999999", "predeterminada"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Inventario - protegido (requiere Administrador)",
+      "item": [
+        {
+          "name": "7.1 Ver variantes de inventario sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/inventario/variantes", "host": ["{{baseUrl}}"], "path": ["api", "inventario", "variantes"] }
+          },
+          "response": []
+        },
+        {
+          "name": "7.2 Registrar movimiento de stock sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoVarianteId\": {{productoVarianteId}},\n  \"tipo\": \"Entrada\",\n  \"cantidad\": 5,\n  \"motivo\": \"Reposicion de prueba\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/inventario/movimientos", "host": ["{{baseUrl}}"], "path": ["api", "inventario", "movimientos"] }
+          },
+          "response": []
+        },
+        {
+          "name": "7.3 Ver historial de movimientos sin sesion -> 401",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/inventario/movimientos", "host": ["{{baseUrl}}"], "path": ["api", "inventario", "movimientos"] }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
