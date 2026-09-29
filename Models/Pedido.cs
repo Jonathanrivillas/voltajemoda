@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
 namespace VoltajeModa.Models;
@@ -13,12 +14,16 @@ public enum EstadoPedido
 public class Pedido
 {
     public int Id { get; set; }
+
     public string? UsuarioId { get; set; }
     public string? AnonimoId { get; set; }
+
     public DateTime Fecha { get; set; } = DateTime.UtcNow;
+
     public EstadoPedido Estado { get; set; } = EstadoPedido.Pendiente;
 
     [Precision(18, 2)]
+    [Range(0.01, double.MaxValue, ErrorMessage = "El total del pedido debe ser mayor a 0.")]
     public decimal Total { get; set; }
 
     public int DireccionId { get; set; }
