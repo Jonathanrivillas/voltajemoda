@@ -1,19 +1,16 @@
 @page "/admin/productos/nuevo"
 @page "/admin/productos/{Id:int}/editar"
-@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
 
-@using Microsoft.AspNetCore.Hosting
-
-@inject ApplicationDbContext Db
+@inject IProductoApiClient ProductoApi
 @inject NavigationManager NavigationManager
-@inject IWebHostEnvironment WebHostEnvironment
 
 <PageTitle>@(Id is null ? "Nuevo producto" : "Editar producto")</PageTitle>
 
 <div class="admin-page-header">
     <div>
         <h1>@(Id is null ? "Nuevo producto" : "Editar producto")</h1>
-        <p>@(Id is null ? "Completa los datos generales y guarda: después vas a poder agregar variantes e imágenes adicionales." : "Modifica los datos y variantes del producto.")</p>
+        <p>Administra el producto desde la API.</p>
     </div>
     <a href="/admin/productos" class="btn btn-outline-dark"><i class="bi bi-arrow-left"></i> Volver</a>
 </div>
@@ -24,155 +21,87 @@
 }
 else
 {
-    @if (Creado)
+    @if (error is not null)
     {
-        <div class="alert alert-success">Producto creado correctamente. Ahora puedes agregar sus variantes e imágenes adicionales más abajo.</div>
+        <div class="alert alert-danger">@error</div>
     }
 
     @if (Id is null && categorias.Count == 0)
     {
-        <div class="alert alert-warning">
-            Todavía no hay categorías creadas. <a href="/admin/categorias">Crea al menos una categoría</a> antes de agregar productos.
-        </div>
+        <div class="alert alert-warning">Todavía no hay categorías. <a href="/admin/categorias">Crea una categoría</a> antes de agregar productos.</div>
     }
     else
     {
-    <EditForm Model="producto" OnValidSubmit="Guardar">
-        <DataAnnotationsValidator />
+        <EditForm Model="producto" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
 
-        <div class="admin-grid-2">
-            <div>
-                <AdminCard Titulo="1. Información básica">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre</label>
-                        <InputText class="form-control" @bind-Value="producto.Nombre" />
-                        <ValidationMessage For="() => producto.Nombre" class="text-danger small" />
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label">Categoría</label>
-                        <InputSelect class="form-select" @bind-Value="producto.CategoriaId">
-                            @foreach (var categoria in categorias)
-                            {
-                                <option value="@categoria.Id">@categoria.Nombre</option>
-                            }
-                        </InputSelect>
-                    </div>
-                    <div class="mb-0 mt-3">
-                        <label class="form-label">Descripción</label>
-                        <InputTextArea class="form-control" rows="4" @bind-Value="producto.Descripcion" />
-                    </div>
-                </AdminCard>
-
-                <AdminCard Titulo="2. Precio">
-                    <div class="mb-0">
-                        <label class="form-label">Precio</label>
-                        <InputNumber class="form-control" @bind-Value="producto.Precio" min="0" step="0.01" />
-                        <ValidationMessage For="() => producto.Precio" class="text-danger small" />
-                    </div>
-                    <hr class="my-3" />
-                    <div class="form-check mb-0">
-                        <InputCheckbox class="form-check-input" id="enOferta" @bind-Value="producto.EnOferta" />
-                        <label class="form-check-label" for="enOferta">Poner en oferta</label>
-                    </div>
-                    @if (producto.EnOferta)
-                    {
-                        <div class="mt-3">
-                            <label class="form-label">Precio de oferta</label>
-                            <InputNumber class="form-control" @bind-Value="producto.PrecioOferta" min="0" step="0.01" />
-                            <ValidationMessage For="() => producto.PrecioOferta" class="text-danger small" />
-                            @if (producto.Precio > 0 && producto.PrecioOferta is > 0 && producto.PrecioOferta < producto.Precio)
-                            {
-                                <div class="text-muted small mt-1">
-                                    El catálogo va a mostrar un descuento del @(Math.Round((1 - (producto.PrecioOferta.Value / producto.Precio)) * 100))%.
-                                </div>
-                            }
-                        </div>
-                    }
-                </AdminCard>
-
-                <AdminCard Titulo="3. Visibilidad en el catálogo">
-                    <div class="form-check mb-3">
-                        <InputCheckbox class="form-check-input" id="destacado" @bind-Value="producto.Destacado" />
-                        <label class="form-check-label" for="destacado">Producto destacado (aparece en "Ofertas destacadas" del inicio)</label>
-                    </div>
-                    <div class="form-check mb-0">
-                        <InputCheckbox class="form-check-input" id="esNuevo" @bind-Value="producto.EsNuevo" />
-                        <label class="form-check-label" for="esNuevo">Marcar como "Nuevo" en el catálogo</label>
-                    </div>
-                </AdminCard>
-            </div>
-
-            <div>
-                <AdminCard Titulo="Imagen principal">
-                    @if (!string.IsNullOrWhiteSpace(producto.ImagenUrl))
-                    {
-                        <img src="@producto.ImagenUrl" alt="Vista previa" class="admin-image-preview" />
-                    }
-                    else
-                    {
-                        <div class="admin-image-preview admin-image-preview-vacia">Sin imagen todavía</div>
-                    }
-                    <div class="mb-3 mt-3">
-                        <label class="form-label">Subir desde el equipo</label>
-                        <InputFile class="form-control" OnChange="SubirImagen" accept="image/png,image/jpeg,image/webp,image/gif" disabled="@subiendoImagen" />
-                        @if (subiendoImagen)
+            <AdminCard Titulo="Información del producto">
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <InputText class="form-control" @bind-Value="producto.Nombre" />
+                    <ValidationMessage For="() => producto.Nombre" class="text-danger small" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">SKU base</label>
+                    <InputText class="form-control" @bind-Value="producto.SKU_Base" />
+                    <ValidationMessage For="() => producto.SKU_Base" class="text-danger small" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Categoría</label>
+                    <InputSelect class="form-select" @bind-Value="producto.CategoriaId">
+                        @foreach (var categoria in categorias)
                         {
-                            <div class="text-muted small mt-1">Subiendo imagen...</div>
+                            <option value="@categoria.CategoriaId">@categoria.Nombre</option>
                         }
-                        @if (errorImagen is not null)
-                        {
-                            <div class="text-danger small mt-1">@errorImagen</div>
-                        }
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label">O pegar una URL externa</label>
-                        <InputText class="form-control" @bind-Value="producto.ImagenUrl" />
-                    </div>
-                </AdminCard>
-            </div>
-        </div>
-
-        @if (Id is null)
-        {
-            <AdminCard Titulo="4. Variantes e imágenes adicionales">
-                <EstadoVacio Mensaje="Guarda la información de arriba para desbloquear esta sección." />
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <InputTextArea class="form-control" rows="4" @bind-Value="producto.Descripcion" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Precio</label>
+                    <InputNumber class="form-control" @bind-Value="producto.PrecioBase" min="0.01" step="0.01" />
+                    <ValidationMessage For="() => producto.PrecioBase" class="text-danger small" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">URL de imagen principal</label>
+                    <InputText class="form-control" @bind-Value="producto.ImagenUrl" />
+                </div>
+                <button type="submit" class="btn btn-dark">Guardar producto</button>
             </AdminCard>
-        }
-        else
-        {
-            <AdminCard Titulo="4. Variantes" >
-                @if (varianteError is not null)
-                {
-                    <div class="alert alert-danger">@varianteError</div>
-                }
+        </EditForm>
 
-                @if (producto.Variantes.Count == 0)
-                {
-                    <EstadoVacio Mensaje="Todavía no hay variantes cargadas." />
-                }
-                else
+        @if (Id is not null)
+        {
+            <AdminCard Titulo="Variantes">
+                @if (producto.Variantes.Count > 0)
                 {
                     <div class="table-responsive mb-3">
                         <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Talla</th>
-                                    <th>Color</th>
-                                    <th>Stock</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>SKU</th><th>Talla</th><th>Color</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead>
                             <tbody>
                                 @foreach (var variante in producto.Variantes)
                                 {
                                     <tr>
-                                        <td>@variante.Talla</td>
-                                        <td>@variante.Color</td>
-                                        <td><StockBadge Stock="variante.Stock" /></td>
-                                        <td class="text-end">
-                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarVariante" @onclick="() => varianteAEliminar = variante">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                        <td><InputText class="form-control form-control-sm" @bind-Value="variante.SkuVariante" /></td>
+                                        <td><InputText class="form-control form-control-sm" @bind-Value="variante.Talla" /></td>
+                                        <td><InputText class="form-control form-control-sm" @bind-Value="variante.Color" /></td>
+                                        <td>@variante.Stock</td>
+                                        <td>
+                                            <span>@(variante.Activo ? "Activa" : "Inactiva")</span>
+                                        </td>
+                                        <td class="text-nowrap">
+                                            <button type="button" class="btn btn-sm btn-outline-dark" @onclick="() => GuardarVariante(variante)">Guardar</button>
+                                            @if (variante.Activo)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => EliminarVariante(variante)">Eliminar</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success" @onclick="() => CambiarEstadoVariante(variante)">Activar</button>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -181,187 +110,84 @@ else
                     </div>
                 }
 
-                <hr class="my-3" />
-
-                <p class="fw-semibold mb-2">Agregar variantes nuevas</p>
-                <p class="text-muted small">Selecciona las tallas y colores que quieras combinar: se va a crear una variante por cada combinación.</p>
-
-                @if (generarError is not null)
-                {
-                    <div class="alert alert-danger">@generarError</div>
-                }
-
-                <div class="mb-3">
-                    <label class="form-label">Tallas</label>
-                    <div class="admin-chip-group">
-                        @foreach (var talla in tallasDisponibles)
-                        {
-                            <button type="button" class="admin-chip @(tallasSeleccionadas.Contains(talla) ? "admin-chip--activo" : "")" @onclick="() => ToggleTalla(talla)">
-                                @talla
-                            </button>
-                        }
-                    </div>
-                    <div class="d-flex gap-2 mt-2">
-                        <input class="form-control form-control-sm" style="max-width: 180px;" placeholder="Otra talla (ej. 38)" @bind="nuevaTallaPersonalizada" @bind:event="oninput" @onkeydown="OnTallaKeyDown" />
-                        <button type="button" class="btn btn-sm btn-outline-dark" @onclick="AgregarTallaPersonalizada">Agregar talla</button>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Colores</label>
-                    @if (coloresSeleccionados.Count > 0)
-                    {
-                        <div class="admin-chip-group mb-2">
-                            @foreach (var color in coloresSeleccionados)
-                            {
-                                <span class="admin-chip admin-chip--activo">
-                                    @color
-                                    <button type="button" class="admin-chip__quitar" @onclick="() => QuitarColor(color)" aria-label="Quitar @color">&times;</button>
-                                </span>
-                            }
-                        </div>
-                    }
-                    <div class="d-flex gap-2">
-                        <input class="form-control form-control-sm" style="max-width: 200px;" placeholder="Ej. Negro" @bind="nuevoColor" @bind:event="oninput" @onkeydown="OnColorKeyDown" />
-                        <button type="button" class="btn btn-sm btn-outline-dark" @onclick="AgregarColor">Agregar color</button>
-                    </div>
-                </div>
-
                 <div class="row g-2 align-items-end">
-                    <div class="col-auto">
-                        <label class="form-label">Stock inicial (para todas)</label>
-                        <InputNumber class="form-control" style="width: 120px;" @bind-Value="stockInicial" min="0" />
-                    </div>
-                    <div class="col-auto">
-                        <button type="button" class="btn btn-dark" disabled="@(tallasSeleccionadas.Count == 0 || coloresSeleccionados.Count == 0)" @onclick="GenerarVariantes">
-                            Generar @(tallasSeleccionadas.Count * coloresSeleccionados.Count) variante(s)
-                        </button>
-                    </div>
+                    <div class="col"><label class="form-label">SKU de variante</label><input class="form-control" @bind="nuevaVariante.SKU_Variante" /></div>
+                    <div class="col"><label class="form-label">Talla</label><input class="form-control" @bind="nuevaVariante.Talla" /></div>
+                    <div class="col"><label class="form-label">Color</label><input class="form-control" @bind="nuevaVariante.Color" /></div>
+                    <div class="col"><label class="form-label">Stock inicial</label><InputNumber class="form-control" @bind-Value="stockInicial" min="0" /></div>
+                    <div class="col-auto"><button type="button" class="btn btn-outline-dark" @onclick="AgregarVariante">Agregar variante</button></div>
                 </div>
             </AdminCard>
 
-            <AdminCard Titulo="5. Imágenes adicionales">
-                <p class="text-muted small">La imagen principal se configura arriba, en "Imagen". Acá podés agregar fotos extra para que el cliente las recorra en el catálogo.</p>
-
-                @if (imagenError is not null)
-                {
-                    <div class="alert alert-danger">@imagenError</div>
-                }
-
-                @if (producto.ImagenesAdicionales.Count == 0)
-                {
-                    <EstadoVacio Mensaje="Todavía no hay imágenes adicionales." />
-                }
-                else
+            <AdminCard Titulo="Imágenes adicionales">
+                @if (producto.Imagenes.Count > 0)
                 {
                     <div class="d-flex flex-wrap gap-3 mb-3">
-                        @foreach (var imagen in producto.ImagenesAdicionales.OrderBy(i => i.Orden))
+                        @foreach (var imagen in producto.Imagenes)
                         {
                             <div>
-                                <img src="@imagen.Url" alt="Imagen adicional" class="admin-image-preview" />
-                                <button type="button" class="btn btn-sm btn-outline-danger mt-1 w-100" data-bs-toggle="modal" data-bs-target="#confirmarEliminarImagen" @onclick="() => imagenAEliminar = imagen">
-                                    <i class="bi bi-trash"></i>
+                                <img src="@imagen.UrlImagen" alt="Imagen adicional" class="admin-image-preview" />
+                                <button type="button" class="btn btn-sm btn-outline-danger mt-1 w-100" @onclick="() => EliminarImagen(imagen)">
+                                    Eliminar imagen
                                 </button>
                             </div>
                         }
                     </div>
                 }
-
-                <div class="mb-3">
-                    <label class="form-label">Subir desde el equipo</label>
-                    <InputFile class="form-control" OnChange="SubirImagenAdicional" accept="image/png,image/jpeg,image/webp,image/gif" disabled="@subiendoImagenAdicional" />
-                    @if (subiendoImagenAdicional)
-                    {
-                        <div class="text-muted small mt-1">Subiendo imagen...</div>
-                    }
-                </div>
-
                 <div class="row g-2 align-items-end">
-                    <div class="col-auto flex-grow-1">
-                        <label class="form-label">O pegar una URL externa</label>
+                    <div class="col">
+                        <label class="form-label">URL de imagen</label>
                         <input class="form-control" @bind="nuevaImagenUrl" />
                     </div>
                     <div class="col-auto">
-                        <button type="button" class="btn btn-outline-dark" @onclick="AgregarImagenPorUrl">Agregar imagen</button>
+                        <button type="button" class="btn btn-outline-dark" @onclick="AgregarImagen">Agregar imagen</button>
                     </div>
                 </div>
             </AdminCard>
         }
-
-        <div class="admin-form-actions">
-            <button type="submit" class="btn btn-dark btn-lg">Guardar</button>
-            @if (Id is null)
-            {
-                <span class="text-muted small">Guarda para crear el producto con sus variantes e imágenes.</span>
-            }
-            else
-            {
-                <span class="text-muted small">Guarda los cambios del producto. Las variantes e imágenes ya se actualizan al agregarlas o quitarlas arriba.</span>
-            }
-        </div>
-    </EditForm>
     }
 }
-
-<ConfirmDialog Id="confirmarEliminarImagen" Titulo="Eliminar imagen"
-    Mensaje="¿Eliminar esta imagen adicional del producto?"
-    OnConfirmado="EliminarImagenConfirmada" />
-
-<ConfirmDialog Id="confirmarEliminarVariante" Titulo="Eliminar variante"
-    Mensaje="@($"¿Eliminar la variante {varianteAEliminar?.Talla} / {varianteAEliminar?.Color}?")"
-    OnConfirmado="EliminarVarianteConfirmada" />
 
 @code {
     [Parameter]
     public int? Id { get; set; }
 
-    [SupplyParameterFromQuery(Name = "creado")]
-    public bool Creado { get; set; }
-
     private bool cargado;
-    private Producto producto = new();
-    private List<Categoria> categorias = new();
-    private ProductoVariante? varianteAEliminar;
-    private string? varianteError;
-
-    private static readonly string[] TallasPreset = { "XS", "S", "M", "L", "XL", "XXL" };
-    private List<string> tallasDisponibles = TallasPreset.ToList();
-    private HashSet<string> tallasSeleccionadas = new();
-    private string nuevaTallaPersonalizada = string.Empty;
-    private List<string> coloresSeleccionados = new();
-    private string nuevoColor = string.Empty;
+    private string? error;
+    private List<CategoriaDto> categorias = new();
+    private ProductoEdicion producto = new();
+    private CrearVarianteApiDto nuevaVariante = new();
     private int stockInicial;
-    private string? generarError;
-
-    private bool subiendoImagen;
-    private string? errorImagen;
-    private const long TamanoMaximoImagen = 5 * 1024 * 1024;
-    private static readonly string[] ExtensionesImagenPermitidas = { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
-
-    private bool subiendoImagenAdicional;
-    private string? imagenError;
     private string nuevaImagenUrl = string.Empty;
-    private ProductoImagen? imagenAEliminar;
 
     protected override async Task OnInitializedAsync()
     {
-        categorias = await Db.Categorias.OrderBy(c => c.Nombre).ToListAsync();
+        categorias = await ProductoApi.ObtenerCategoriasAsync();
 
-        if (Id is not null)
+        if (Id is int productoId)
         {
-            var encontrado = await Db.Productos
-                .Include(p => p.Variantes)
-                .Include(p => p.ImagenesAdicionales)
-                .FirstOrDefaultAsync(p => p.Id == Id);
-
-            if (encontrado is not null)
+            var detalle = await ProductoApi.ObtenerProductoPorIdAsync(productoId);
+            if (detalle is null)
             {
-                producto = encontrado;
+                error = "No se pudo cargar el producto.";
+            }
+            else
+            {
+                producto.Id = detalle.ProductoId;
+                producto.Nombre = detalle.Nombre;
+                producto.SKU_Base = detalle.SkuBase;
+                producto.CategoriaId = detalle.CategoriaId;
+                producto.Descripcion = detalle.Descripcion ?? string.Empty;
+                producto.PrecioBase = detalle.PrecioBase;
+                producto.ImagenUrl = detalle.ImagenUrl;
+                producto.Variantes = await ProductoApi.ObtenerVariantesAsync(productoId);
+                producto.Imagenes = detalle.Imagenes;
+                nuevaVariante.ProductoId = productoId;
             }
         }
         else if (categorias.Count > 0)
         {
-            producto.CategoriaId = categorias[0].Id;
+            producto.CategoriaId = categorias[0].CategoriaId;
         }
 
         cargado = true;
@@ -369,271 +195,175 @@ else
 
     private async Task Guardar()
     {
+        error = null;
+        var dto = new CrearProductoDto
+        {
+            CategoriaId = producto.CategoriaId,
+            SKU_Base = producto.SKU_Base,
+            Nombre = producto.Nombre,
+            Descripcion = producto.Descripcion,
+            PrecioBase = producto.PrecioBase
+        };
+
+        var guardado = Id is int productoId
+            ? await ProductoApi.ActualizarProductoAsync(productoId, dto)
+            : await ProductoApi.CrearProductoAsync(dto);
+
+        if (!guardado)
+        {
+            error = "No se pudo guardar el producto. Revisa los datos e inténtalo de nuevo.";
+            return;
+        }
+
         if (Id is null)
         {
-            Db.Productos.Add(producto);
-            await Db.SaveChangesAsync();
-            NavigationManager.NavigateTo($"/admin/productos/{producto.Id}/editar?creado=true");
+            var catalogo = await ProductoApi.ObtenerCatalogoAsync(tamanoPagina: 100);
+            var nuevoProducto = catalogo?.Productos.FirstOrDefault(p => p.SkuBase == producto.SKU_Base);
+            if (nuevoProducto is null)
+            {
+                NavigationManager.NavigateTo("/admin/productos");
+                return;
+            }
+
+            NavigationManager.NavigateTo($"/admin/productos/{nuevoProducto.ProductoId}/editar?creado=true");
         }
         else
         {
-            await Db.SaveChangesAsync();
+            error = "Producto guardado.";
         }
     }
 
-    private async Task SubirImagen(InputFileChangeEventArgs e)
+    private async Task AgregarVariante()
     {
-        errorImagen = null;
-        var archivo = e.File;
-
-        var extension = Path.GetExtension(archivo.Name).ToLowerInvariant();
-        if (!ExtensionesImagenPermitidas.Contains(extension))
+        error = null;
+        if (string.IsNullOrWhiteSpace(nuevaVariante.SKU_Variante))
         {
-            errorImagen = "Formato no soportado. Usa JPG, PNG, WEBP o GIF.";
+            error = "Ingresa el SKU de la variante.";
             return;
         }
 
-        if (archivo.Size > TamanoMaximoImagen)
+        nuevaVariante.ProductoId = producto.Id;
+        if (!await ProductoApi.CrearVarianteAsync(nuevaVariante))
         {
-            errorImagen = "La imagen no puede superar los 5 MB.";
+            error = "No se pudo crear la variante.";
             return;
         }
 
-        subiendoImagen = true;
-        try
+        if (stockInicial > 0)
         {
-            var carpeta = Path.Combine(WebHostEnvironment.WebRootPath, "uploads", "productos");
-            Directory.CreateDirectory(carpeta);
-
-            var nombreArchivo = $"{Guid.NewGuid():N}{extension}";
-            var rutaCompleta = Path.Combine(carpeta, nombreArchivo);
-
-            await using (var stream = archivo.OpenReadStream(TamanoMaximoImagen))
-            await using (var destino = File.Create(rutaCompleta))
+            var variantes = await ProductoApi.ObtenerVariantesAsync(producto.Id);
+            var variante = variantes.FirstOrDefault(v => v.SkuVariante == nuevaVariante.SKU_Variante);
+            if (variante is not null && !await ProductoApi.AjustarInventarioAsync(variante.VarianteId, stockInicial, "Stock inicial"))
             {
-                await stream.CopyToAsync(destino);
+                error = "La variante se creó, pero no se pudo registrar el stock inicial.";
             }
+        }
 
-            producto.ImagenUrl = $"/uploads/productos/{nombreArchivo}";
-        }
-        catch (IOException)
-        {
-            errorImagen = "No se pudo guardar la imagen. Intenta de nuevo.";
-        }
-        finally
-        {
-            subiendoImagen = false;
-        }
+        producto.Variantes = await ProductoApi.ObtenerVariantesAsync(producto.Id);
+        nuevaVariante = new CrearVarianteApiDto { ProductoId = producto.Id };
+        stockInicial = 0;
     }
 
-    private async Task SubirImagenAdicional(InputFileChangeEventArgs e)
+    private async Task GuardarVariante(VarianteDto variante)
     {
-        imagenError = null;
-        var archivo = e.File;
-
-        var extension = Path.GetExtension(archivo.Name).ToLowerInvariant();
-        if (!ExtensionesImagenPermitidas.Contains(extension))
+        error = null;
+        var actualizado = await ProductoApi.ActualizarVarianteAsync(variante.VarianteId, new CrearVarianteApiDto
         {
-            imagenError = "Formato no soportado. Usa JPG, PNG, WEBP o GIF.";
+            ProductoId = producto.Id,
+            SKU_Variante = variante.SkuVariante,
+            Talla = variante.Talla,
+            Color = variante.Color
+        });
+        if (!actualizado)
+        {
+            error = "No se pudo actualizar la variante.";
             return;
         }
 
-        if (archivo.Size > TamanoMaximoImagen)
+        producto.Variantes = await ProductoApi.ObtenerVariantesAsync(producto.Id);
+    }
+
+    private async Task EliminarVariante(VarianteDto variante)
+    {
+        error = null;
+        if (!await ProductoApi.EliminarVarianteAsync(variante.VarianteId))
         {
-            imagenError = "La imagen no puede superar los 5 MB.";
+            error = "No se pudo desactivar la variante.";
             return;
         }
 
-        subiendoImagenAdicional = true;
-        try
-        {
-            var carpeta = Path.Combine(WebHostEnvironment.WebRootPath, "uploads", "productos");
-            Directory.CreateDirectory(carpeta);
-
-            var nombreArchivo = $"{Guid.NewGuid():N}{extension}";
-            var rutaCompleta = Path.Combine(carpeta, nombreArchivo);
-
-            await using (var stream = archivo.OpenReadStream(TamanoMaximoImagen))
-            await using (var destino = File.Create(rutaCompleta))
-            {
-                await stream.CopyToAsync(destino);
-            }
-
-            await GuardarImagenAdicional($"/uploads/productos/{nombreArchivo}");
-        }
-        catch (IOException)
-        {
-            imagenError = "No se pudo guardar la imagen. Intenta de nuevo.";
-        }
-        finally
-        {
-            subiendoImagenAdicional = false;
-        }
+        producto.Variantes = await ProductoApi.ObtenerVariantesAsync(producto.Id);
     }
 
-    private async Task AgregarImagenPorUrl()
+    private async Task CambiarEstadoVariante(VarianteDto variante)
     {
-        imagenError = null;
+        error = null;
+        if (!await ProductoApi.CambiarEstadoVarianteAsync(variante.VarianteId))
+        {
+            error = "No se pudo activar la variante.";
+            return;
+        }
 
+        producto.Variantes = await ProductoApi.ObtenerVariantesAsync(producto.Id);
+    }
+
+    private async Task AgregarImagen()
+    {
         if (string.IsNullOrWhiteSpace(nuevaImagenUrl))
         {
-            imagenError = "Pega una URL de imagen válida.";
+            error = "Ingresa la URL de la imagen.";
             return;
         }
 
-        await GuardarImagenAdicional(nuevaImagenUrl);
+        var imagen = new AgregarImagenApiDto
+        {
+            ProductoId = producto.Id,
+            UrlImagen = nuevaImagenUrl,
+            Orden = producto.Imagenes.Count
+        };
+
+        if (!await ProductoApi.AgregarImagenAsync(imagen))
+        {
+            error = "No se pudo agregar la imagen.";
+            return;
+        }
+
+        var detalle = await ProductoApi.ObtenerProductoPorIdAsync(producto.Id);
+        producto.Imagenes = detalle?.Imagenes ?? new();
         nuevaImagenUrl = string.Empty;
     }
 
-    private async Task GuardarImagenAdicional(string url)
+    private async Task EliminarImagen(ImagenDto imagen)
     {
-        var imagen = new ProductoImagen
+        if (!await ProductoApi.EliminarImagenAsync(imagen.ImagenId))
         {
-            Url = url,
-            Orden = producto.ImagenesAdicionales.Count,
-            ProductoId = producto.Id
-        };
-
-        Db.ProductoImagenes.Add(imagen);
-        await Db.SaveChangesAsync();
-    }
-
-    private async Task EliminarImagenConfirmada()
-    {
-        if (imagenAEliminar is null) return;
-
-        Db.ProductoImagenes.Remove(imagenAEliminar);
-        await Db.SaveChangesAsync();
-
-        producto.ImagenesAdicionales.Remove(imagenAEliminar);
-        imagenAEliminar = null;
-    }
-
-    private void ToggleTalla(string talla)
-    {
-        if (!tallasSeleccionadas.Add(talla))
-        {
-            tallasSeleccionadas.Remove(talla);
-        }
-    }
-
-    private void AgregarTallaPersonalizada()
-    {
-        var talla = nuevaTallaPersonalizada.Trim();
-        if (string.IsNullOrWhiteSpace(talla))
-        {
+            error = "No se pudo eliminar la imagen.";
             return;
         }
 
-        if (!tallasDisponibles.Contains(talla, StringComparer.OrdinalIgnoreCase))
-        {
-            tallasDisponibles.Add(talla);
-        }
-
-        tallasSeleccionadas.Add(talla);
-        nuevaTallaPersonalizada = string.Empty;
+        producto.Imagenes.Remove(imagen);
     }
 
-    private void OnTallaKeyDown(KeyboardEventArgs e)
+    private sealed class ProductoEdicion
     {
-        if (e.Key == "Enter")
-        {
-            AgregarTallaPersonalizada();
-        }
-    }
+        public int Id { get; set; }
 
-    private void AgregarColor()
-    {
-        var color = nuevoColor.Trim();
-        if (string.IsNullOrWhiteSpace(color))
-        {
-            return;
-        }
+        [Required(ErrorMessage = "Ingresa el nombre del producto.")]
+        public string Nombre { get; set; } = string.Empty;
 
-        if (!coloresSeleccionados.Contains(color, StringComparer.OrdinalIgnoreCase))
-        {
-            coloresSeleccionados.Add(color);
-        }
+        [Required(ErrorMessage = "Ingresa el SKU base.")]
+        public string SKU_Base { get; set; } = string.Empty;
 
-        nuevoColor = string.Empty;
-    }
+        [Range(1, int.MaxValue, ErrorMessage = "Selecciona una categoría.")]
+        public int CategoriaId { get; set; }
 
-    private void OnColorKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            AgregarColor();
-        }
-    }
+        public string Descripcion { get; set; } = string.Empty;
 
-    private void QuitarColor(string color)
-    {
-        coloresSeleccionados.Remove(color);
-    }
+        [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a cero.")]
+        public decimal PrecioBase { get; set; }
 
-    private async Task GenerarVariantes()
-    {
-        varianteError = null;
-        generarError = null;
-
-        if (tallasSeleccionadas.Count == 0 || coloresSeleccionados.Count == 0)
-        {
-            generarError = "Selecciona al menos una talla y un color.";
-            return;
-        }
-
-        var nuevas = new List<ProductoVariante>();
-        foreach (var talla in tallasSeleccionadas)
-        {
-            foreach (var color in coloresSeleccionados)
-            {
-                var yaExiste = producto.Variantes.Any(v =>
-                    string.Equals(v.Talla, talla, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(v.Color, color, StringComparison.OrdinalIgnoreCase));
-
-                if (!yaExiste)
-                {
-                    nuevas.Add(new ProductoVariante { Talla = talla, Color = color, Stock = stockInicial, ProductoId = producto.Id });
-                }
-            }
-        }
-
-        if (nuevas.Count == 0)
-        {
-            generarError = "Esas combinaciones de talla y color ya existen para este producto.";
-            return;
-        }
-
-        Db.ProductoVariantes.AddRange(nuevas);
-        await Db.SaveChangesAsync();
-
-        tallasSeleccionadas.Clear();
-        coloresSeleccionados.Clear();
-    }
-
-    private async Task EliminarVarianteConfirmada()
-    {
-        if (varianteAEliminar is null) return;
-        varianteError = null;
-
-        // Los pedidos cancelados no bloquean el borrado, solo los pedidos activos. Al borrar la
-        // variante, los PedidoItem de pedidos cancelados que la referencian se eliminan en
-        // cascada (por diseño de la base), perdiendo el detalle de artículos de ese pedido.
-        var tienePedidosActivos = await Db.PedidoItems.AnyAsync(pi => pi.ProductoVarianteId == varianteAEliminar.Id
-            && pi.Pedido!.Estado != EstadoPedido.Cancelado);
-        var enCarrito = await Db.CarritoItems.AnyAsync(ci => ci.ProductoVarianteId == varianteAEliminar.Id);
-        var tieneMovimientos = await Db.MovimientosStock.AnyAsync(m => m.ProductoVarianteId == varianteAEliminar.Id);
-
-        if (tienePedidosActivos || enCarrito || tieneMovimientos)
-        {
-            varianteError = "No se puede eliminar esta variante: está en un carrito, tiene pedidos activos (no cancelados) o movimientos de stock registrados.";
-            varianteAEliminar = null;
-            return;
-        }
-
-        Db.ProductoVariantes.Remove(varianteAEliminar);
-        await Db.SaveChangesAsync();
-        producto.Variantes.Remove(varianteAEliminar);
-        varianteAEliminar = null;
+        public string ImagenUrl { get; set; } = string.Empty;
+        public List<VarianteDto> Variantes { get; set; } = new();
+        public List<ImagenDto> Imagenes { get; set; } = new();
     }
 }

@@ -1,5 +1,3 @@
-@using VoltajeModa.Services
-
 <span class="admin-badge @ClaseEstado">@Etiqueta (@Stock)</span>
 
 @code {
@@ -7,7 +5,7 @@
     public int Stock { get; set; }
 
     [Parameter]
-    public int UmbralBajo { get; set; } = InventarioService.UmbralStockBajo;
+    public int UmbralBajo { get; set; } = 5;
 
     private string ClaseEstado => Stock switch
     {

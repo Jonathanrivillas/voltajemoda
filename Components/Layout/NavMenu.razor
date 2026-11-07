@@ -1,18 +1,12 @@
 @implements IDisposable
-@rendermode InteractiveServer
-
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 @using VoltajeModa.Services
 
 @inject NavigationManager NavigationManager
-@inject IDbContextFactory<ApplicationDbContext> DbFactory
-@inject CarritoService CarritoService
 @inject CarritoEstadoService CarritoEstado
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IProductoApiClient ProductoApi
+@inject SesionUsuarioService Sesion
 
 <div class="promo-bar" id="promoBar">Suscríbete y obtén el 15%DTO. en tu primera compra</div>
 
@@ -27,13 +21,23 @@
         <div class="collapse navbar-collapse" id="navbarMenu">
             <ul class="navbar-nav mx-lg-auto mb-2 mb-lg-0 voltaje-nav-links">
                 <li class="nav-item">
-                    <a class="nav-link @(EsCatalogoGeneral ? "active" : "")" href="productos">Catálogo</a>
+                    <a class="nav-link @(EsCatalogoGeneral ? "active" : "")" href="/productos">Catálogo</a>
                 </li>
-                @foreach (var categoria in categorias)
+                @foreach (var categoria in categoriasPredeterminadas)
                 {
                     <li class="nav-item">
-                        <NavLink class="nav-link" href="@($"productos?categoriaId={categoria.Id}")">@categoria.Nombre</NavLink>
+                        <a class="nav-link @(EsCategoriaActiva(categoria) ? "active" : "")" href="@ObtenerEnlaceCategoria(categoria)">@categoria</a>
                     </li>
+                }
+                @foreach (var categoria in categorias.Where(c => !categoriasPredeterminadas.Contains(c.Nombre, StringComparer.OrdinalIgnoreCase)))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link @(EsCategoriaActiva(categoria.CategoriaId) ? "active" : "")" href="@($"productos?categoriaId={categoria.CategoriaId}")">@categoria.Nombre</a>
+                    </li>
+                }
+                @if (Sesion.EstaAutenticado && (Sesion.Rol is "Administrador" or "Empleado"))
+                {
+                    <li class="nav-item"><NavLink class="nav-link" href="/admin/productos">Panel Admin</NavLink></li>
                 }
             </ul>
 
@@ -54,13 +58,14 @@
                         </svg>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end user-dropdown">
-                        <AuthorizeView>
-                            <Authorized>
+                        @if (Sesion.EstaAutenticado)
+                        {
                                 <li class="user-dropdown-header">
                                     <div class="account-avatar">@iniciales</div>
                                     <div class="user-dropdown-info">
-                                        <div class="user-dropdown-name">@(nombre ?? context.User.Identity?.Name)</div>
+                                        <div class="user-dropdown-name">@Sesion.Correo</div>
                                         <div class="user-dropdown-email">@correo</div>
+                                        <div class="user-dropdown-email">@Sesion.Rol</div>
                                     </div>
                                 </li>
                                 <li>
@@ -75,33 +80,28 @@
                                         <span>Mis pedidos</span>
                                     </NavLink>
                                 </li>
-                                <AuthorizeView Roles="Administrador" Context="adminContext">
-                                    <Authorized>
-                                        <li>
-                                            <NavLink class="dropdown-item user-dropdown-link" href="admin">
-                                                <IconoSvg Nombre="panel" />
-                                                <span>Admin</span>
-                                            </NavLink>
-                                        </li>
-                                    </Authorized>
-                                </AuthorizeView>
+                                @if (Sesion.Rol is "Administrador" or "Empleado")
+                                {
+                                    <li>
+                                        <NavLink class="dropdown-item user-dropdown-link" href="admin">
+                                            <IconoSvg Nombre="panel" />
+                                            <span>Admin</span>
+                                        </NavLink>
+                                    </li>
+                                }
                                 <li><hr class="dropdown-divider" /></li>
                                 <li>
-                                    <form action="Account/Logout" method="post">
-                                        <AntiforgeryToken />
-                                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                                        <button type="submit" class="dropdown-item user-dropdown-link user-dropdown-logout">
-                                            <IconoSvg Nombre="salir" />
-                                            <span>Salir</span>
-                                        </button>
-                                    </form>
+                                    <button type="button" class="dropdown-item user-dropdown-link user-dropdown-logout" @onclick="CerrarSesion">
+                                        <IconoSvg Nombre="salir" />
+                                        <span>Cerrar sesión</span>
+                                    </button>
                                 </li>
-                            </Authorized>
-                            <NotAuthorized>
+                        }
+                        else
+                        {
                                 <li><NavLink class="dropdown-item user-dropdown-link" href="Account/Login">Ingresar</NavLink></li>
                                 <li><NavLink class="dropdown-item user-dropdown-link" href="Account/Register">Registrarse</NavLink></li>
-                            </NotAuthorized>
-                        </AuthorizeView>
+                        }
                     </ul>
                 </div>
 
@@ -126,48 +126,59 @@
 
 @code {
     private string? currentUrl;
-    private List<Categoria> categorias = new();
+    private List<CategoriaDto> categorias = new();
+    private readonly string[] categoriasPredeterminadas = ["Superiores", "Inferiores", "Conjuntos", "Vestidos", "Enterizos"];
     private CarritoDrawer? carritoDrawer;
     private int cantidadCarrito;
-    private string? nombre;
     private string? correo;
     private string iniciales = "?";
-
-    [CascadingParameter]
-    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
     // NavLink con Match="All" no distingue diferencias de query string de forma confiable acá
     // (queda "active" aunque haya un categoriaId en la URL), así que el estado de "Catálogo" se
     // calcula a mano a partir de currentUrl en vez de depender de su matching automático.
-    private bool EsCatalogoGeneral =>
-        currentUrl is not null
-        && (currentUrl == "productos" || currentUrl.StartsWith("productos?"))
-        && !currentUrl.Contains("categoriaId=", StringComparison.OrdinalIgnoreCase);
+    private bool EsCatalogoGeneral => currentUrl == "productos";
+
+    private bool EsCategoriaActiva(int categoriaId)
+    {
+        var parametro = currentUrl?.Split('?', 2).ElementAtOrDefault(1);
+        return parametro?.Split('&').Any(par =>
+            par.Equals($"categoriaId={categoriaId}", StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    private bool EsCategoriaActiva(string nombre)
+    {
+        var categoria = categorias.FirstOrDefault(c => c.Nombre.Equals(nombre, StringComparison.OrdinalIgnoreCase));
+        if (categoria is not null)
+            return EsCategoriaActiva(categoria.CategoriaId);
+
+        var parametro = currentUrl?.Split('?', 2).ElementAtOrDefault(1);
+        var valorBusqueda = parametro?.Split('&')
+            .FirstOrDefault(par => par.StartsWith("buscar=", StringComparison.OrdinalIgnoreCase))?
+            .Split('=', 2).ElementAtOrDefault(1);
+
+        return valorBusqueda is not null
+            && Uri.UnescapeDataString(valorBusqueda).Equals(nombre, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string ObtenerEnlaceCategoria(string nombre)
+    {
+        var categoria = categorias.FirstOrDefault(c => c.Nombre.Equals(nombre, StringComparison.OrdinalIgnoreCase));
+        return categoria is null
+            ? $"productos?buscar={Uri.EscapeDataString(nombre)}"
+            : $"productos?categoriaId={categoria.CategoriaId}";
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        categorias = await db.Categorias.ToListAsync();
+        categorias = await ProductoApi.ObtenerCategoriasAsync();
 
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
         CarritoEstado.Cambio += OnCarritoCambio;
-
-        if (AuthenticationStateTask is not null)
-        {
-            var authState = await AuthenticationStateTask;
-            if (authState.User.Identity?.IsAuthenticated == true)
-            {
-                var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
-                var usuario = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-                if (usuario is not null)
-                {
-                    nombre = string.IsNullOrWhiteSpace(usuario.Nombre) ? null : usuario.Nombre;
-                    correo = usuario.Email;
-                    iniciales = AvatarUtils.CalcularIniciales(nombre ?? correo);
-                }
-            }
-        }
+        Sesion.OnChange += OnSesionCambio;
+        correo = Sesion.Correo;
+        iniciales = AvatarUtils.CalcularIniciales(correo);
+        await ActualizarContadorAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -184,16 +195,14 @@
 
     private async Task ActualizarContadorAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var usuarioId = authState.User.Identity?.IsAuthenticated == true
-            ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
-            : null;
+        if (!Sesion.EstaAutenticado || Sesion.Rol != "Cliente")
+        {
+            cantidadCarrito = 0;
+            return;
+        }
 
-        await using var db = await DbFactory.CreateDbContextAsync();
-        var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
-        cantidadCarrito = await db.CarritoItems
-            .Where(i => i.CarritoId == carrito.Id)
-            .SumAsync(i => i.Cantidad);
+        var carrito = await ProductoApi.ObtenerCarritoAsync();
+        cantidadCarrito = carrito?.Items.Sum(i => i.Cantidad) ?? 0;
     }
 
     private async void OnCarritoCambio()
@@ -219,9 +228,27 @@
         StateHasChanged();
     }
 
+    private void OnSesionCambio()
+    {
+        correo = Sesion.Correo;
+        iniciales = AvatarUtils.CalcularIniciales(correo);
+        _ = InvokeAsync(async () =>
+        {
+            await ActualizarContadorAsync();
+            StateHasChanged();
+        });
+    }
+
+    private void CerrarSesion()
+    {
+        Sesion.CerrarSesion();
+        NavigationManager.NavigateTo("/");
+    }
+
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
         CarritoEstado.Cambio -= OnCarritoCambio;
+        Sesion.OnChange -= OnSesionCambio;
     }
 }

@@ -1,21 +1,11 @@
 @page "/Account/Register"
 
 @using System.ComponentModel.DataAnnotations
-@using System.Text
-@using System.Text.Encodings.Web
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.AspNetCore.WebUtilities
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 
-@inject UserManager<ApplicationUser> UserManager
-@inject IUserStore<ApplicationUser> UserStore
-@inject SignInManager<ApplicationUser> SignInManager
-@inject IEmailSender<ApplicationUser> EmailSender
-@inject ApplicationDbContext Db
-@inject ILogger<Register> Logger
-@inject NavigationManager NavigationManager
-@inject IdentityRedirectManager RedirectManager
+@inject IProductoApiClient ProductoApi
+@inject NavigationManager Nav
 
 <PageTitle>Crear cuenta · Voltaje Moda</PageTitle>
 
@@ -27,24 +17,31 @@
             <p class="auth-subtitle">Regístrate para comprar más rápido y ver tu historial de pedidos.</p>
         </div>
 
-        <StatusMessage Message="@Message" />
+        @if (error is not null)
+        {
+            <div class="alert alert-danger">@error</div>
+        }
 
-        <ExternalLoginPicker ReturnUrl="@ReturnUrl" />
-
-        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+        <EditForm Model="Input" method="post" OnValidSubmit="HandleRegistration" FormName="register">
             <DataAnnotationsValidator />
             <p class="auth-section-title">Datos de la cuenta</p>
 
             <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Nombre" id="Input.Nombre" class="form-control" autocomplete="name" aria-required="true"/>
-                <label for="Input.Nombre">Nombre completo</label>
+                <InputText @bind-Value="Input.Nombre" id="Input.Nombre" class="form-control" autocomplete="given-name" aria-required="true"/>
+                <label for="Input.Nombre">Nombre</label>
                 <ValidationMessage For="() => Input.Nombre" class="text-danger" />
             </div>
 
             <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true"/>
-                <label for="Input.Email">Correo electrónico</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
+                <InputText @bind-Value="Input.Apellido" id="Input.Apellido" class="form-control" autocomplete="family-name" aria-required="true"/>
+                <label for="Input.Apellido">Apellido</label>
+                <ValidationMessage For="() => Input.Apellido" class="text-danger" />
+            </div>
+
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.CorreoElectronico" id="Input.CorreoElectronico" class="form-control" autocomplete="username" aria-required="true"/>
+                <label for="Input.CorreoElectronico">Correo electrónico</label>
+                <ValidationMessage For="() => Input.CorreoElectronico" class="text-danger" />
             </div>
 
             <div class="form-floating mb-3">
@@ -68,184 +65,78 @@
                 <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
             </div>
 
-            <p class="auth-section-title">Dirección de envío</p>
-
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Calle" id="Input.Calle" class="form-control" autocomplete="street-address" aria-required="true"/>
-                <label for="Input.Calle">Calle y número</label>
-                <ValidationMessage For="() => Input.Calle" class="text-danger" />
-            </div>
-
-            <div class="row g-2 mb-3">
-                <div class="col-8">
-                    <div class="form-floating">
-                        <InputText @bind-Value="Input.Ciudad" id="Input.Ciudad" class="form-control" autocomplete="address-level2" aria-required="true"/>
-                        <label for="Input.Ciudad">Ciudad</label>
-                        <ValidationMessage For="() => Input.Ciudad" class="text-danger" />
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="form-floating">
-                        <InputText @bind-Value="Input.CodigoPostal" id="Input.CodigoPostal" class="form-control" autocomplete="postal-code" aria-required="true"/>
-                        <label for="Input.CodigoPostal">Código Postal.</label>
-                        <ValidationMessage For="() => Input.CodigoPostal" class="text-danger" />
-                    </div>
-                </div>
-            </div>
-
-            <label class="auth-terms mb-4">
-                <InputCheckbox @bind-Value="Input.AceptaTerminos" class="form-check-input" />
-                <span>
-                    Acepto los <a href="/terminos" target="_blank" class="auth-link">Términos y Condiciones</a> y el tratamiento de mis datos personales.
-                    <ValidationMessage For="() => Input.AceptaTerminos" class="text-danger d-block" />
-                </span>
-            </label>
-
             <button type="submit" class="w-100 btn btn-dark btn-lg auth-submit">Crear cuenta</button>
         </EditForm>
 
         <p class="auth-footer-text">
             ¿Ya tienes cuenta?
-            <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Inicia sesión</a>
+            <a href="/Account/Login">Inicia sesión</a>
         </p>
     </div>
 </div>
 
 @code {
-    private IEnumerable<IdentityError>? identityErrors;
+    private string? error;
 
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;
-
-    [SupplyParameterFromQuery]
-    private string? ReturnUrl { get; set; }
-
-    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
 
     protected override void OnInitialized()
     {
         Input ??= new();
     }
 
-    public async Task RegisterUser(EditContext editContext)
+    private async Task HandleRegistration()
     {
-        var user = CreateUser();
-        user.Nombre = Input.Nombre;
-        user.PhoneNumber = Input.Telefono;
-
-        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-        var emailStore = GetEmailStore();
-        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
-        var result = await UserManager.CreateAsync(user, Input.Password);
-
-        if (!result.Succeeded)
+        error = null;
+        var registroExitoso = await ProductoApi.RegistrarClienteAsync(new RegistroClienteDto
         {
-            if (result.Errors.Any(error => error.Code is "DuplicateUserName" or "DuplicateEmail"))
-            {
-                // No revelamos que el correo ya está registrado: mismo comportamiento visible
-                // que un registro exitoso, para evitar que alguien pueda enumerar cuentas existentes.
-                RedirectManager.RedirectTo(
-                    "Account/RegisterConfirmation",
-                    new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
-                return;
-            }
-
-            identityErrors = result.Errors;
-            return;
-        }
-
-        var userId = await UserManager.GetUserIdAsync(user);
-
-        Db.Direcciones.Add(new Direccion
-        {
-            UsuarioId = userId,
-            Calle = Input.Calle,
-            Ciudad = Input.Ciudad,
-            CodigoPostal = Input.CodigoPostal
+            Nombre = Input.Nombre,
+            Apellido = Input.Apellido,
+            CorreoElectronico = Input.CorreoElectronico,
+            Password = Input.Password,
+            Telefono = Input.Telefono
         });
-        await Db.SaveChangesAsync();
 
-        Logger.LogInformation("User created a new account with password.");
-
-        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
-        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
-
-        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
-
-        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        if (registroExitoso)
         {
-            RedirectManager.RedirectTo(
-                "Account/RegisterConfirmation",
-                new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
+            Nav.NavigateTo("/");
         }
         else
         {
-            await SignInManager.SignInAsync(user, isPersistent: false);
-            RedirectManager.RedirectTo(ReturnUrl);
+            error = "No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo.";
         }
-    }
-
-    private ApplicationUser CreateUser()
-    {
-        try
-        {
-            return Activator.CreateInstance<ApplicationUser>();
-        }
-        catch
-        {
-            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
-                $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor.");
-        }
-    }
-
-    private IUserEmailStore<ApplicationUser> GetEmailStore()
-    {
-        if (!UserManager.SupportsUserEmail)
-        {
-            throw new NotSupportedException("The default UI requires a user store with email support.");
-        }
-        return (IUserEmailStore<ApplicationUser>)UserStore;
     }
 
     private sealed class InputModel
     {
-        [Required(ErrorMessage = "Ingresa tu nombre completo.")]
-        [StringLength(150, ErrorMessage = "El nombre no puede superar los {1} caracteres.")]
+        [Required(ErrorMessage = "Ingresa tu nombre.")]
+        [StringLength(100, ErrorMessage = "El nombre no puede superar los {1} caracteres.")]
         public string Nombre { get; set; } = "";
+
+        [Required(ErrorMessage = "Ingresa tu apellido.")]
+        [StringLength(100, ErrorMessage = "El apellido no puede superar los {1} caracteres.")]
+        public string Apellido { get; set; } = "";
 
         [Required(ErrorMessage = "Ingresa tu correo electrónico.")]
         [EmailAddress(ErrorMessage = "Ingresa un correo electrónico válido.")]
-        [Display(Name = "Email")]
-        public string Email { get; set; } = "";
+        [StringLength(150, ErrorMessage = "El correo no puede superar los {1} caracteres.")]
+        public string CorreoElectronico { get; set; } = "";
 
         [Required(ErrorMessage = "Ingresa tu teléfono.")]
         [Phone(ErrorMessage = "Ingresa un teléfono válido.")]
+        [StringLength(20, ErrorMessage = "El teléfono no puede superar los {1} caracteres.")]
         public string Telefono { get; set; } = "";
 
         [Required(ErrorMessage = "Ingresa una contraseña.")]
         [StringLength(100, ErrorMessage = "La contraseña debe tener entre {2} y {1} caracteres.", MinimumLength = 8)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$",
+            ErrorMessage = "La contraseña debe contener una mayúscula, un número y un carácter especial.")]
         [DataType(DataType.Password)]
-        [Display(Name = "Password")]
         public string Password { get; set; } = "";
 
         [DataType(DataType.Password)]
-        [Display(Name = "Confirm password")]
         [Compare("Password", ErrorMessage = "La contraseña y su confirmación no coinciden.")]
         public string ConfirmPassword { get; set; } = "";
-
-        [Required(ErrorMessage = "Ingresa la calle y número.")]
-        public string Calle { get; set; } = "";
-
-        [Required(ErrorMessage = "Ingresa tu ciudad.")]
-        public string Ciudad { get; set; } = "";
-
-        [Required(ErrorMessage = "Ingresa el código postal.")]
-        public string CodigoPostal { get; set; } = "";
-
-        [Range(typeof(bool), "true", "true", ErrorMessage = "Debes aceptar los términos y condiciones.")]
-        public bool AceptaTerminos { get; set; }
     }
 }

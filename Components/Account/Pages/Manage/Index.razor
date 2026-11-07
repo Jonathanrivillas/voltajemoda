@@ -1,17 +1,10 @@
 @page "/Account/Manage"
 
 @using System.ComponentModel.DataAnnotations
-@using System.Text
-@using System.Text.Encodings.Web
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.AspNetCore.WebUtilities
-@using VoltajeModa.Data
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 
-@inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
-@inject IEmailSender<ApplicationUser> EmailSender
-@inject NavigationManager NavigationManager
-@inject IdentityRedirectManager RedirectManager
+@inject IProductoApiClient ProductoApi
 
 <PageTitle>Perfil</PageTitle>
 
@@ -20,366 +13,144 @@
         <div class="account-card-icon"><IconoSvg Nombre="usuario" Width="20" Height="20" /></div>
         <div>
             <h2 class="account-card-title">Información personal</h2>
-            <p class="account-card-subtitle">Tu nombre y datos de contacto básicos.</p>
+            <p class="account-card-subtitle">Actualiza tu nombre y teléfono.</p>
         </div>
     </div>
     <div class="account-card-body">
-        @if (mensajePerfil is not null)
+        @if (error is not null)
         {
-            <div class="alert alert-@(mensajePerfil.StartsWith("Error") ? "danger" : "success")">@mensajePerfil</div>
+            <div class="alert alert-danger">@error</div>
         }
-        <div class="row">
-            <div class="col-xl-6">
-                <EditForm Model="InputPerfil" FormName="profile" OnValidSubmit="GuardarPerfilAsync" method="post">
-                    <DataAnnotationsValidator />
-                    <div class="form-floating mb-3">
-                        <input type="text" value="@username" id="username" class="form-control" placeholder=" " disabled />
-                        <label for="username" class="form-label">Nombre de usuario</label>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <InputText @bind-Value="InputPerfil.Nombre" id="InputPerfil.Nombre" class="form-control" placeholder=" " />
-                        <label for="InputPerfil.Nombre" class="form-label">Nombre completo</label>
-                        <ValidationMessage For="() => InputPerfil.Nombre" class="text-danger" />
-                    </div>
-                    <div class="form-floating mb-3">
-                        <InputText @bind-Value="InputPerfil.PhoneNumber" id="InputPerfil.PhoneNumber" class="form-control" placeholder=" " />
-                        <label for="InputPerfil.PhoneNumber" class="form-label">Teléfono</label>
-                        <ValidationMessage For="() => InputPerfil.PhoneNumber" class="text-danger" />
-                    </div>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </EditForm>
-            </div>
-        </div>
-    </div>
-</div>
+        @if (mensaje is not null)
+        {
+            <div class="alert alert-success">@mensaje</div>
+        }
 
-<div class="account-card">
-    <div class="account-card-header">
-        <div class="account-card-icon"><IconoSvg Nombre="correo" Width="20" Height="20" /></div>
-        <div>
-            <h2 class="account-card-title">Correo electrónico</h2>
-            <p class="account-card-subtitle">Se usa para iniciar sesión y recibir notificaciones de tus pedidos.</p>
-        </div>
-    </div>
-    <div class="account-card-body">
-        @if (mensajeCorreo is not null)
+        @if (perfil is null)
         {
-            <div class="alert alert-@(mensajeCorreo.StartsWith("Error") ? "danger" : "success")">@mensajeCorreo</div>
+            <Cargando />
         }
-        <div class="row">
-            <div class="col-xl-6">
-                <form @onsubmit="EnviarVerificacionCorreoAsync" @formname="send-verification" id="send-verification-form" method="post">
-                    <AntiforgeryToken />
-                </form>
-                <EditForm Model="InputCorreo" FormName="change-email" OnValidSubmit="CambiarCorreoAsync" method="post">
-                    <DataAnnotationsValidator />
-                    @if (isEmailConfirmed)
-                    {
-                        <div class="form-floating mb-3 input-group">
-                            <input type="text" value="@email" id="email" class="form-control" placeholder=" " disabled />
-                            <div class="input-group-append">
-                                <span class="h-100 input-group-text text-success font-weight-bold">?</span>
-                            </div>
-                            <label for="email" class="form-label">Correo electrónico</label>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="form-floating mb-3">
-                            <input type="text" value="@email" id="email" class="form-control" placeholder=" " disabled />
-                            <label for="email" class="form-label">Correo electrónico</label>
-                            <button type="submit" class="btn btn-link" form="send-verification-form">Enviar correo de verificación</button>
-                        </div>
-                    }
-                    <div class="form-floating mb-3">
-                        <InputText @bind-Value="InputCorreo.NewEmail" id="InputCorreo.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder=" " />
-                        <label for="InputCorreo.NewEmail" class="form-label">Nuevo correo</label>
-                        <ValidationMessage For="() => InputCorreo.NewEmail" class="text-danger" />
-                    </div>
-                    <button type="submit" class="btn btn-primary">Cambiar correo</button>
-                </EditForm>
-            </div>
-        </div>
+        else
+        {
+            <p><strong>Correo:</strong> @perfil.CorreoElectronico</p>
+            <p><strong>Rol:</strong> @perfil.Rol</p>
+            <EditForm Model="formulario" OnValidSubmit="GuardarPerfil">
+                <DataAnnotationsValidator />
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="formulario.Nombre" class="form-control" />
+                    <label>Nombre</label>
+                    <ValidationMessage For="() => formulario.Nombre" class="text-danger" />
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="formulario.Apellido" class="form-control" />
+                    <label>Apellido</label>
+                    <ValidationMessage For="() => formulario.Apellido" class="text-danger" />
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="formulario.Telefono" class="form-control" />
+                    <label>Teléfono</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Guardar perfil</button>
+            </EditForm>
+        }
     </div>
 </div>
 
 <div class="account-card">
     <div class="account-card-header">
         <div class="account-card-icon"><IconoSvg Nombre="candado" Width="20" Height="20" /></div>
-        <div>
-            <h2 class="account-card-title">Contraseña</h2>
-            <p class="account-card-subtitle">
-                @(hasPassword ? "Usa una contraseña de al menos 8 caracteres que no uses en otros sitios." : "No tienes una contraseña local: agrega una para poder iniciar sesión sin depender de un inicio de sesión externo.")
-            </p>
-        </div>
+        <div><h2 class="account-card-title">Cambiar contraseña</h2></div>
     </div>
     <div class="account-card-body">
-        @if (mensajeContrasena is not null)
-        {
-            <div class="alert alert-@(mensajeContrasena.StartsWith("Error") ? "danger" : "success")">@mensajeContrasena</div>
-        }
-        <div class="row">
-            <div class="col-xl-6">
-                @if (hasPassword)
-                {
-                    <EditForm Model="InputContrasena" FormName="change-password" OnValidSubmit="CambiarContrasenaAsync" method="post">
-                        <DataAnnotationsValidator />
-                        <div class="form-floating mb-3">
-                            <InputText type="password" @bind-Value="InputContrasena.OldPassword" id="InputContrasena.OldPassword" class="form-control" autocomplete="current-password" aria-required="true" placeholder=" " />
-                            <label for="InputContrasena.OldPassword" class="form-label">Contraseña actual</label>
-                            <ValidationMessage For="() => InputContrasena.OldPassword" class="text-danger" />
-                        </div>
-                        <div class="form-floating mb-3">
-                            <InputText type="password" @bind-Value="InputContrasena.NewPassword" id="InputContrasena.NewPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder=" " />
-                            <label for="InputContrasena.NewPassword" class="form-label">Nueva contraseña</label>
-                            <ValidationMessage For="() => InputContrasena.NewPassword" class="text-danger" />
-                        </div>
-                        <div class="form-floating mb-3">
-                            <InputText type="password" @bind-Value="InputContrasena.ConfirmPassword" id="InputContrasena.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder=" " />
-                            <label for="InputContrasena.ConfirmPassword" class="form-label">Confirmar contraseña</label>
-                            <ValidationMessage For="() => InputContrasena.ConfirmPassword" class="text-danger" />
-                        </div>
-                        <button type="submit" class="btn btn-primary">Actualizar contraseña</button>
-                    </EditForm>
-                }
-                else
-                {
-                    <EditForm Model="InputEstablecerContrasena" FormName="set-password" OnValidSubmit="EstablecerContrasenaAsync" method="post">
-                        <DataAnnotationsValidator />
-                        <div class="form-floating mb-3">
-                            <InputText type="password" @bind-Value="InputEstablecerContrasena.NewPassword" id="InputEstablecerContrasena.NewPassword" class="form-control" autocomplete="new-password" placeholder=" " />
-                            <label for="InputEstablecerContrasena.NewPassword" class="form-label">Nueva contraseña</label>
-                            <ValidationMessage For="() => InputEstablecerContrasena.NewPassword" class="text-danger" />
-                        </div>
-                        <div class="form-floating mb-3">
-                            <InputText type="password" @bind-Value="InputEstablecerContrasena.ConfirmPassword" id="InputEstablecerContrasena.ConfirmPassword" class="form-control" autocomplete="new-password" placeholder=" " />
-                            <label for="InputEstablecerContrasena.ConfirmPassword" class="form-label">Confirmar contraseña</label>
-                            <ValidationMessage For="() => InputEstablecerContrasena.ConfirmPassword" class="text-danger" />
-                        </div>
-                        <button type="submit" class="btn btn-primary">Establecer contraseña</button>
-                    </EditForm>
-                }
+        <EditForm Model="passwordForm" OnValidSubmit="CambiarPassword">
+            <DataAnnotationsValidator />
+            <div class="form-floating mb-3">
+                <InputText type="password" @bind-Value="passwordForm.PasswordActual" class="form-control" />
+                <label>Contraseña actual</label>
+                <ValidationMessage For="() => passwordForm.PasswordActual" class="text-danger" />
             </div>
-        </div>
+            <div class="form-floating mb-3">
+                <InputText type="password" @bind-Value="passwordForm.NuevaPassword" class="form-control" />
+                <label>Nueva contraseña</label>
+                <ValidationMessage For="() => passwordForm.NuevaPassword" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-outline-dark">Actualizar contraseña</button>
+        </EditForm>
     </div>
 </div>
 
 @code {
-    private ApplicationUser? user;
-    private string? username;
-    private string? phoneNumber;
-    private string? email;
-    private bool isEmailConfirmed;
-    private bool hasPassword;
-
-    private string? mensajePerfil;
-    private string? mensajeCorreo;
-    private string? mensajeContrasena;
-
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "profile")]
-    private PerfilInputModel InputPerfil { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "change-email")]
-    private CorreoInputModel InputCorreo { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "change-password")]
-    private ContrasenaInputModel InputContrasena { get; set; } = default!;
-
-    [SupplyParameterFromForm(FormName = "set-password")]
-    private EstablecerContrasenaInputModel InputEstablecerContrasena { get; set; } = default!;
+    private PerfilDto? perfil;
+    private PerfilInput formulario = new();
+    private PasswordInput passwordForm = new();
+    private string? error;
+    private string? mensaje;
 
     protected override async Task OnInitializedAsync()
     {
-        InputPerfil ??= new();
-        InputCorreo ??= new();
-        InputContrasena ??= new();
-        InputEstablecerContrasena ??= new();
-
-        user = await UserManager.GetUserAsync(HttpContext.User);
-        if (user is null)
+        perfil = await ProductoApi.ObtenerPerfilAsync();
+        if (perfil is not null)
         {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
+            formulario.Nombre = perfil.Nombre ?? string.Empty;
+            formulario.Apellido = perfil.Apellido ?? string.Empty;
+            formulario.Telefono = perfil.Telefono ?? string.Empty;
         }
-
-        username = await UserManager.GetUserNameAsync(user);
-        phoneNumber = await UserManager.GetPhoneNumberAsync(user);
-        email = await UserManager.GetEmailAsync(user);
-        isEmailConfirmed = await UserManager.IsEmailConfirmedAsync(user);
-        hasPassword = await UserManager.HasPasswordAsync(user);
-
-        InputPerfil.PhoneNumber ??= phoneNumber;
-        InputPerfil.Nombre ??= user.Nombre;
-        InputCorreo.NewEmail ??= email;
     }
 
-    private async Task GuardarPerfilAsync()
+    private async Task GuardarPerfil()
     {
-        if (user is null)
+        error = null;
+        mensaje = null;
+        if (await ProductoApi.ActualizarPerfilAsync(new ActualizarPerfilApiDto
         {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
-        }
-
-        if (InputPerfil.PhoneNumber != phoneNumber)
+            Nombre = formulario.Nombre,
+            Apellido = formulario.Apellido,
+            Telefono = formulario.Telefono
+        }))
         {
-            var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, InputPerfil.PhoneNumber);
-            if (!setPhoneResult.Succeeded)
-            {
-                mensajePerfil = "Error: No se pudo guardar el número de teléfono.";
-                return;
-            }
-
-            phoneNumber = InputPerfil.PhoneNumber;
+            mensaje = "Perfil actualizado.";
+            perfil = await ProductoApi.ObtenerPerfilAsync();
         }
-
-        if (InputPerfil.Nombre != user.Nombre)
+        else
         {
-            user.Nombre = InputPerfil.Nombre ?? string.Empty;
-            await UserManager.UpdateAsync(user);
+            error = "No se pudo actualizar el perfil.";
         }
-
-        await SignInManager.RefreshSignInAsync(user);
-        mensajePerfil = "Tu perfil ha sido actualizado.";
     }
 
-    private async Task CambiarCorreoAsync()
+    private async Task CambiarPassword()
     {
-        if (InputCorreo.NewEmail is null || InputCorreo.NewEmail == email)
+        error = null;
+        mensaje = null;
+        if (await ProductoApi.CambiarPasswordAsync(new CambiarPasswordApiDto
         {
-            mensajeCorreo = "Tu correo no ha cambiado.";
-            return;
-        }
-
-        if (user is null)
+            PasswordActual = passwordForm.PasswordActual,
+            NuevaPassword = passwordForm.NuevaPassword
+        }))
         {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
+            mensaje = "Contraseña actualizada.";
+            passwordForm = new();
         }
-
-        var userId = await UserManager.GetUserIdAsync(user);
-        var code = await UserManager.GenerateChangeEmailTokenAsync(user, InputCorreo.NewEmail);
-        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["email"] = InputCorreo.NewEmail, ["code"] = code });
-
-        await EmailSender.SendConfirmationLinkAsync(user, InputCorreo.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
-
-        mensajeCorreo = "Se envió el enlace de confirmación para cambiar tu correo. Revisa tu bandeja de entrada.";
+        else
+        {
+            error = "No se pudo cambiar la contraseña. Verifica la contraseña actual.";
+        }
     }
 
-    private async Task EnviarVerificacionCorreoAsync()
+    private sealed class PerfilInput
     {
-        if (email is null || user is null)
-        {
-            return;
-        }
-
-        var userId = await UserManager.GetUserIdAsync(user);
-        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
-        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
-
-        await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
-
-        mensajeCorreo = "Se envió el correo de verificación. Revisa tu bandeja de entrada.";
+        [Required(ErrorMessage = "Ingresa tu nombre.")]
+        public string Nombre { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Ingresa tu apellido.")]
+        public string Apellido { get; set; } = string.Empty;
+        public string? Telefono { get; set; }
     }
 
-    private async Task CambiarContrasenaAsync()
+    private sealed class PasswordInput
     {
-        if (user is null)
-        {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
-        }
-
-        var changePasswordResult = await UserManager.ChangePasswordAsync(user, InputContrasena.OldPassword, InputContrasena.NewPassword);
-        if (!changePasswordResult.Succeeded)
-        {
-            mensajeContrasena = $"Error: {string.Join(", ", changePasswordResult.Errors.Select(error => error.Description))}";
-            return;
-        }
-
-        await SignInManager.RefreshSignInAsync(user);
-        mensajeContrasena = "Tu contraseña ha sido actualizada.";
-        InputContrasena = new();
-    }
-
-    private async Task EstablecerContrasenaAsync()
-    {
-        if (user is null)
-        {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
-        }
-
-        var addPasswordResult = await UserManager.AddPasswordAsync(user, InputEstablecerContrasena.NewPassword!);
-        if (!addPasswordResult.Succeeded)
-        {
-            mensajeContrasena = $"Error: {string.Join(", ", addPasswordResult.Errors.Select(error => error.Description))}";
-            return;
-        }
-
-        await SignInManager.RefreshSignInAsync(user);
-        hasPassword = true;
-        mensajeContrasena = "Tu contraseña ha sido establecida.";
-        InputEstablecerContrasena = new();
-    }
-
-    private sealed class PerfilInputModel
-    {
-        [Display(Name = "Nombre completo")]
-        public string? Nombre { get; set; }
-
-        [Phone]
-        [Display(Name = "Teléfono")]
-        public string? PhoneNumber { get; set; }
-    }
-
-    private sealed class CorreoInputModel
-    {
-        [Required]
-        [EmailAddress]
-        [Display(Name = "Nuevo correo")]
-        public string? NewEmail { get; set; }
-    }
-
-    private sealed class ContrasenaInputModel
-    {
-        [Required]
-        [DataType(DataType.Password)]
-        [Display(Name = "Contraseña actual")]
-        public string OldPassword { get; set; } = "";
-
-        [Required]
-        [StringLength(100, ErrorMessage = "{0} debe tener entre {2} y {1} caracteres.", MinimumLength = 8)]
-        [DataType(DataType.Password)]
-        [Display(Name = "Nueva contraseña")]
-        public string NewPassword { get; set; } = "";
-
-        [DataType(DataType.Password)]
-        [Display(Name = "Confirmar nueva contraseña")]
-        [Compare("NewPassword", ErrorMessage = "La nueva contraseña y su confirmación no coinciden.")]
-        public string ConfirmPassword { get; set; } = "";
-    }
-
-    private sealed class EstablecerContrasenaInputModel
-    {
-        [Required]
-        [StringLength(100, ErrorMessage = "{0} debe tener entre {2} y {1} caracteres.", MinimumLength = 8)]
-        [DataType(DataType.Password)]
-        [Display(Name = "Nueva contraseña")]
-        public string? NewPassword { get; set; }
-
-        [DataType(DataType.Password)]
-        [Display(Name = "Confirmar nueva contraseña")]
-        [Compare("NewPassword", ErrorMessage = "La nueva contraseña y su confirmación no coinciden.")]
-        public string? ConfirmPassword { get; set; }
+        [Required(ErrorMessage = "Ingresa tu contraseña actual.")]
+        public string PasswordActual { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Ingresa la nueva contraseña.")]
+        [StringLength(100, MinimumLength = 8)]
+        public string NuevaPassword { get; set; } = string.Empty;
     }
 }

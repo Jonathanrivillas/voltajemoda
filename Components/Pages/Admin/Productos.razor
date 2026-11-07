@@ -1,14 +1,12 @@
 @page "/admin/productos"
-@rendermode InteractiveServer
-
-@inject ApplicationDbContext Db
+@inject IProductoApiClient ProductoApi
 
 <PageTitle>Productos</PageTitle>
 
 <div class="admin-page-header">
     <div>
         <h1>Productos</h1>
-        <p>Gestiona el catálogo, precios, ofertas y variantes.</p>
+        <p>Gestiona el catálogo y su inventario.</p>
     </div>
     <a href="/admin/productos/nuevo" class="btn btn-dark"><i class="bi bi-plus-lg"></i> Nuevo producto</a>
 </div>
@@ -36,7 +34,7 @@ else
                     <option value="0">Todas las categorías</option>
                     @foreach (var categoria in categorias)
                     {
-                        <option value="@categoria.Id">@categoria.Nombre</option>
+                        <option value="@categoria.CategoriaId">@categoria.Nombre</option>
                     }
                 </select>
                 <select class="form-select form-select-sm" @bind="estadoStock">
@@ -45,14 +43,6 @@ else
                     <option value="StockBajo">Stock bajo</option>
                     <option value="SinStock">Sin stock</option>
                 </select>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="soloOferta" @bind="soloOferta" />
-                    <label class="form-check-label" for="soloOferta">En oferta</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="soloDestacado" @bind="soloDestacado" />
-                    <label class="form-check-label" for="soloDestacado">Destacado</label>
-                </div>
             </div>
         </Toolbar>
         <ChildContent>
@@ -66,7 +56,6 @@ else
                     <table class="admin-table">
                         <thead>
                             <tr>
-                                <th></th>
                                 <th>Nombre</th>
                                 <th>Categoría</th>
                                 <th>Precio</th>
@@ -79,28 +68,16 @@ else
                             @foreach (var producto in ProductosFiltrados)
                             {
                                 <tr>
-                                    <td>
-                                        <img src="@producto.ImagenUrl" alt="@producto.Nombre" class="admin-table-thumb" />
-                                    </td>
-                                    <td>
-                                        @producto.Nombre
-                                        @if (producto.EnOferta)
-                                        {
-                                            <span class="admin-badge admin-badge--enviado ms-1">Oferta</span>
-                                        }
-                                        @if (producto.Destacado)
-                                        {
-                                            <span class="admin-badge admin-badge--entregado ms-1">Destacado</span>
-                                        }
-                                    </td>
-                                    <td>@producto.Categoria?.Nombre</td>
-                                    <td>@producto.PrecioEfectivo.ToString("C")</td>
+                                    <td>@producto.Nombre</td>
+                                    <td>@producto.NombreCategoria</td>
+                                    <td>@producto.PrecioBase.ToString("C")</td>
                                     <td><StockBadge Stock="StockTotal(producto)" /></td>
                                     <td>@producto.Variantes.Count</td>
                                     <td class="text-end">
-                                        <a href="/admin/productos/@producto.Id/editar" class="btn btn-sm btn-outline-dark"><i class="bi bi-pencil"></i></a>
-                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarEliminarProducto" @onclick="() => productoAEliminar = producto">
-                                            <i class="bi bi-trash"></i>
+                                        <a href="/admin/productos/@producto.ProductoId/editar" class="btn btn-outline-dark"><i class="bi bi-pencil"></i> Editar</a>
+                                        <a href="/admin/productos/@producto.ProductoId/editar" class="btn btn-dark">Variantes y Stock</a>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => CambiarEstadoAsync(producto)">
+                                            <i class="bi bi-eye-slash"></i> Desactivar
                                         </button>
                                     </td>
                                 </tr>
@@ -113,47 +90,35 @@ else
     </AdminCard>
 }
 
-<ConfirmDialog Id="confirmarEliminarProducto" Titulo="Eliminar producto"
-    Mensaje="@($"¿Eliminar '{productoAEliminar?.Nombre}'? Esta acción no se puede deshacer.")"
-    OnConfirmado="EliminarConfirmado" />
-
 @code {
-    private List<Producto>? productos;
-    private List<Categoria> categorias = new();
+    private List<ProductoDto>? productos;
+    private List<CategoriaDto> categorias = new();
     private string? error;
-    private Producto? productoAEliminar;
-
     private string busqueda = "";
     private int categoriaId;
     private string estadoStock = "Todos";
-    private bool soloOferta;
-    private bool soloDestacado;
 
     protected override async Task OnInitializedAsync()
     {
-        categorias = await Db.Categorias.OrderBy(c => c.Nombre).ToListAsync();
+        categorias = await ProductoApi.ObtenerCategoriasAsync();
         await CargarAsync();
     }
 
     private async Task CargarAsync()
     {
-        productos = await Db.Productos
-            .Include(p => p.Categoria)
-            .Include(p => p.Variantes)
-            .OrderBy(p => p.Nombre)
-            .ToListAsync();
+        var catalogo = await ProductoApi.ObtenerCatalogoAsync(tamanoPagina: 100);
+        productos = catalogo?.Productos ?? new List<ProductoDto>();
     }
 
-    private int StockTotal(Producto producto) => producto.Variantes.Sum(v => v.Stock);
+    private static int StockTotal(ProductoDto producto) => producto.Variantes.Sum(v => v.Stock);
 
-    private List<Producto> ProductosFiltrados
+    private List<ProductoDto> ProductosFiltrados
     {
         get
         {
             if (productos is null) return new();
 
-            IEnumerable<Producto> query = productos;
-
+            IEnumerable<ProductoDto> query = productos;
             if (!string.IsNullOrWhiteSpace(busqueda))
             {
                 query = query.Where(p => p.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase));
@@ -164,21 +129,11 @@ else
                 query = query.Where(p => p.CategoriaId == categoriaId);
             }
 
-            if (soloOferta)
-            {
-                query = query.Where(p => p.EnOferta);
-            }
-
-            if (soloDestacado)
-            {
-                query = query.Where(p => p.Destacado);
-            }
-
             query = estadoStock switch
             {
                 "SinStock" => query.Where(p => StockTotal(p) == 0),
-                "StockBajo" => query.Where(p => StockTotal(p) > 0 && StockTotal(p) <= InventarioService.UmbralStockBajo),
-                "EnStock" => query.Where(p => StockTotal(p) > InventarioService.UmbralStockBajo),
+                "StockBajo" => query.Where(p => StockTotal(p) > 0 && StockTotal(p) <= 5),
+                "EnStock" => query.Where(p => StockTotal(p) > 5),
                 _ => query
             };
 
@@ -186,29 +141,15 @@ else
         }
     }
 
-    private async Task EliminarConfirmado()
+    private async Task CambiarEstadoAsync(ProductoDto producto)
     {
-        if (productoAEliminar is null) return;
         error = null;
-
-        // Los pedidos cancelados no bloquean el borrado: solo importan los pedidos activos
-        // (cualquier estado distinto de Cancelado). Al borrar la variante/producto, los
-        // PedidoItem de pedidos cancelados que lo referencian se eliminan en cascada (por
-        // diseño de la base), perdiendo el detalle de artículos de ese pedido cancelado.
-        var tienePedidosActivos = await Db.PedidoItems
-            .AnyAsync(pi => pi.ProductoVariante!.ProductoId == productoAEliminar.Id
-                && pi.Pedido!.Estado != EstadoPedido.Cancelado);
-
-        if (tienePedidosActivos)
+        if (!await ProductoApi.CambiarEstadoProductoAsync(producto.ProductoId))
         {
-            error = $"No se puede eliminar '{productoAEliminar.Nombre}': tiene pedidos activos (no cancelados) asociados.";
-            productoAEliminar = null;
+            error = $"No se pudo desactivar '{producto.Nombre}'.";
             return;
         }
 
-        Db.Productos.Remove(productoAEliminar);
-        await Db.SaveChangesAsync();
-        productoAEliminar = null;
         await CargarAsync();
     }
 }

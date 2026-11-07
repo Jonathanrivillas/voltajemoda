@@ -1,10 +1,13 @@
 @page "/"
 
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
 @using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
+@using VoltajeModa.Services
+@implements IDisposable
 
-@inject ApplicationDbContext Db
+@inject IProductoApiClient ProductoApi
+@inject ProductosDestacadosService ProductosDestacados
 
 <PageTitle>Voltaje Moda</PageTitle>
 
@@ -100,20 +103,30 @@ else
 </div>
 
 @code {
-    private List<BannerSlide>? slidesActivos;
+    private List<BannerDto>? slidesActivos;
     private List<Producto>? destacados;
+    private List<Producto> productosCatalogo = new();
 
     protected override async Task OnInitializedAsync()
     {
-        slidesActivos = await Db.BannerSlides
-            .Where(s => s.Activo)
-            .OrderBy(s => s.Orden)
-            .ToListAsync();
+        slidesActivos = await ProductoApi.ObtenerBannersAsync();
+        var catalogo = await ProductoApi.ObtenerCatalogoAsync(tamanoPagina: 100);
+        productosCatalogo = catalogo?.Productos.Select(p => p.AModelo()).ToList() ?? new();
+        ProductosDestacados.OnChange += ActualizarDestacados;
+        ActualizarDestacados();
+    }
 
-        destacados = await Db.Productos
-            .Where(p => p.Destacado)
-            .Include(p => p.ImagenesAdicionales)
-            .Take(8)
-            .ToListAsync();
+    private void ActualizarDestacados()
+    {
+        var ids = ProductosDestacados.ObtenerIds();
+        destacados = ids.Count == 0
+            ? productosCatalogo.Take(8).ToList()
+            : productosCatalogo.Where(p => ids.Contains(p.Id)).ToList();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ProductosDestacados.OnChange -= ActualizarDestacados;
     }
 }

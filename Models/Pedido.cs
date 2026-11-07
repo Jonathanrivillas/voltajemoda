@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 
 namespace VoltajeModa.Models;
 
@@ -22,7 +21,6 @@ public class Pedido
 
     public EstadoPedido Estado { get; set; } = EstadoPedido.Pendiente;
 
-    [Precision(18, 2)]
     [Range(0.01, double.MaxValue, ErrorMessage = "El total del pedido debe ser mayor a 0.")]
     public decimal Total { get; set; }
 

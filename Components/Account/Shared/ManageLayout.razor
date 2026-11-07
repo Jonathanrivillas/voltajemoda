@@ -1,75 +1,44 @@
 @inherits LayoutComponentBase
 @layout VoltajeModa.Components.Layout.MainLayout
+@using VoltajeModa.Services
 
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-
-@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject SesionUsuarioService Sesion
+@inject NavigationManager NavigationManager
 
 <div class="account-shell">
     <div class="account-header">
         <h1>Mi cuenta</h1>
-        <p>Administra tu perfil, seguridad, direcciones de envío y pedidos en un solo lugar.</p>
+        <p>Administra tu perfil, direcciones y pedidos.</p>
     </div>
 
-    <div class="account-grid">
-        <aside class="account-sidebar">
-            <div class="account-sidebar-card">
-                <div class="account-user">
-                    <div class="account-avatar">@iniciales</div>
-                    <div class="account-user-info">
-                        <div class="account-user-name">@(nombre ?? "Tu cuenta")</div>
-                        <div class="account-user-email">@correo</div>
+    @if (Sesion.EstaAutenticado)
+    {
+        <div class="account-grid">
+            <aside class="account-sidebar">
+                <div class="account-sidebar-card">
+                    <div class="account-user">
+                        <div class="account-avatar">@(Sesion.Correo?.Trim().Substring(0, 1).ToUpperInvariant() ?? "?")</div>
+                        <div class="account-user-info">
+                            <div class="account-user-name">@Sesion.Correo</div>
+                            <div class="account-user-email">@Sesion.Rol</div>
+                        </div>
                     </div>
+                    <ManageNavMenu />
                 </div>
-                <ManageNavMenu />
+            </aside>
+            <div class="account-content">
+                @Body
             </div>
-        </aside>
-
-        <div class="account-content">
-            @Body
         </div>
-    </div>
+    }
 </div>
 
 @code {
-    private string? nombre;
-    private string? correo;
-    private string iniciales = "?";
-
-    [CascadingParameter]
-    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnAfterRender(bool firstRender)
     {
-        if (AuthenticationStateTask is null)
+        if (!Sesion.EstaAutenticado)
         {
-            return;
+            NavigationManager.NavigateTo("/Account/Login");
         }
-
-        var authState = await AuthenticationStateTask;
-        var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId is null)
-        {
-            return;
-        }
-
-        // Se usa una instancia propia de ApplicationDbContext (vía IDbContextFactory) en vez del
-        // UserManager/DbContext compartido del scope: Blazor renderiza @Body sin esperar a que
-        // termine el OnInitializedAsync de este layout, así que una página hija puede consultar la
-        // base de datos al mismo tiempo. Compartir el mismo DbContext entre ambas causa
-        // "A second operation was started on this context instance..." (mismo patrón que ya usa NavMenu.razor).
-        await using var db = await DbFactory.CreateDbContextAsync();
-        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-        if (user is null)
-        {
-            return;
-        }
-
-        nombre = string.IsNullOrWhiteSpace(user.Nombre) ? null : user.Nombre;
-        correo = user.Email;
-        iniciales = AvatarUtils.CalcularIniciales(nombre ?? correo);
     }
 }

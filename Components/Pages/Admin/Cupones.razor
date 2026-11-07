@@ -1,0 +1,120 @@
+@page "/admin/cupones"
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
+@inject IProductoApiClient ProductoApi
+
+<PageTitle>Cupones</PageTitle>
+<div class="admin-page-header">
+    <div><h1>Cupones</h1><p>Crea códigos promocionales para tus clientes.</p></div>
+</div>
+@if (error is not null) { <div class="alert alert-danger">@error</div> }
+@if (mensaje is not null) { <div class="alert alert-success">@mensaje</div> }
+
+<AdminCard Titulo="Nuevo cupón">
+    <EditForm Model="formulario" OnValidSubmit="Crear">
+        <DataAnnotationsValidator />
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Código</label>
+                <InputText class="form-control" @bind-Value="formulario.Codigo" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Descuento (%)</label>
+                <InputNumber class="form-control" @bind-Value="formulario.Descuento" min="0.01" max="100" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Válido desde</label>
+                <InputDate class="form-control" @bind-Value="formulario.ValidoDesde" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Válido hasta</label>
+                <InputDate class="form-control" @bind-Value="formulario.ValidoHasta" />
+            </div>
+        </div>
+        <button class="btn btn-dark mt-3" type="submit">Crear cupón</button>
+    </EditForm>
+</AdminCard>
+
+@if (cupones is null)
+{
+    <Cargando />
+}
+else
+{
+    <AdminCard Titulo="Cupones registrados">
+        @if (cupones.Count == 0)
+        {
+            <EstadoVacio Mensaje="Todavía no hay cupones." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead><tr><th>Código</th><th>Descuento</th><th>Desde</th><th>Hasta</th><th>Estado</th></tr></thead>
+                    <tbody>
+                        @foreach (var cupon in cupones)
+                        {
+                            <tr>
+                                <td>@cupon.Codigo</td>
+                                <td>@cupon.Descuento%</td>
+                                <td>@cupon.ValidoDesde.ToString("d")</td>
+                                <td>@cupon.ValidoHasta.ToString("d")</td>
+                                <td>@(cupon.Activo ? "Activo" : "Inactivo")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </AdminCard>
+}
+
+@code {
+    private List<CuponAdminDto>? cupones;
+    private CuponForm formulario = new();
+    private string? error;
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync() => cupones = await ProductoApi.ObtenerCuponesAdminAsync();
+
+    private async Task Crear()
+    {
+        error = null;
+        mensaje = null;
+        if (formulario.ValidoHasta.Date <= formulario.ValidoDesde.Date)
+        {
+            error = "La fecha límite debe ser posterior a la fecha de inicio.";
+            return;
+        }
+
+        var creado = await ProductoApi.CrearCuponAsync(new CrearCuponApiDto
+        {
+            Codigo = formulario.Codigo,
+            Descuento = formulario.Descuento,
+            ValidoDesde = formulario.ValidoDesde,
+            ValidoHasta = formulario.ValidoHasta
+        });
+        if (!creado)
+        {
+            error = "No se pudo crear el cupón. Verifica los datos.";
+            return;
+        }
+
+        mensaje = "Cupón creado.";
+        formulario = new();
+        await CargarAsync();
+    }
+
+    private sealed class CuponForm
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.StringLength(50, MinimumLength = 3)]
+        public string Codigo { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.Range(0.01, 100)]
+        public decimal Descuento { get; set; } = 10;
+        public DateTime ValidoDesde { get; set; } = DateTime.Today;
+        public DateTime ValidoHasta { get; set; } = DateTime.Today.AddMonths(1);
+    }
+}

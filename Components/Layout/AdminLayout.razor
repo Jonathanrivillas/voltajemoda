@@ -1,13 +1,22 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 
+@using VoltajeModa.Services
+
 @inject NavigationManager NavigationManager
+@inject SesionUsuarioService Sesion
 
 @* Chart.js/admin-charts.js/admin-ui.js se cargan desde App.razor (no desde acá): con la navegación
    "enhanced" de Blazor, un <script> agregado dinámicamente vía <HeadContent> del layout no bloquea
    ni garantiza estar listo cuando OnAfterRenderAsync intenta usarlo — causaba una carrera que
    tumbaba el circuito entero. App.razor es el shell raíz, siempre presente antes de que corra
    cualquier componente interactivo. *@
+@if (!EsPersonalAutorizado)
+{
+    <Cargando />
+}
+else
+{
 <HeadContent>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="@Assets["admin.css"]" />
@@ -44,6 +53,9 @@
             <NavLink class="admin-nav-link" href="admin/usuarios">
                 <i class="bi bi-people"></i> <span>Usuarios</span>
             </NavLink>
+            <NavLink class="admin-nav-link" href="admin/cupones">
+                <i class="bi bi-ticket-perforated"></i> <span>Cupones</span>
+            </NavLink>
         </nav>
 
         <a class="admin-nav-link admin-nav-link--muted" href="/">
@@ -63,29 +75,19 @@
             </div>
 
             <div class="admin-topbar__actions">
-                <AuthorizeView>
-                    <Authorized>
-                        <div class="dropdown">
-                            <button class="admin-user-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span class="admin-user-avatar">@(context.User.Identity?.Name?.Trim().Substring(0, 1).ToUpperInvariant() ?? "?")</span>
-                                <span class="admin-user-name">@context.User.Identity?.Name</span>
-                                <i class="bi bi-chevron-down"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><NavLink class="dropdown-item" href="Account/Manage">Mi cuenta</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="/">Volver al sitio</NavLink></li>
-                                <li><hr class="dropdown-divider" /></li>
-                                <li>
-                                    <form action="Account/Logout" method="post">
-                                        <AntiforgeryToken />
-                                        <input type="hidden" name="ReturnUrl" value="/" />
-                                        <button type="submit" class="dropdown-item">Salir</button>
-                                    </form>
-                                </li>
-                            </ul>
-                        </div>
-                    </Authorized>
-                </AuthorizeView>
+                <div class="dropdown">
+                    <button class="admin-user-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="admin-user-avatar">@(Sesion.Correo?.Trim().Substring(0, 1).ToUpperInvariant() ?? "?")</span>
+                        <span class="admin-user-name">@Sesion.Correo</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text">@Sesion.Rol</span></li>
+                        <li><NavLink class="dropdown-item" href="/">Volver al sitio</NavLink></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><button type="button" class="dropdown-item" @onclick="CerrarSesion">Cerrar sesión</button></li>
+                    </ul>
+                </div>
             </div>
         </header>
 
@@ -94,18 +96,51 @@
         </main>
     </div>
 </div>
+}
 
 @code {
     private bool sidebarAbierto;
+    private bool redireccionEnviada;
+    private bool EsPersonalAutorizado => Sesion.EstaAutenticado && Sesion.Rol is ("Administrador" or "Empleado");
 
     protected override void OnInitialized()
     {
         NavigationManager.LocationChanged += OnLocationChanged;
+        Sesion.OnChange += OnSesionCambio;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!EsPersonalAutorizado && !redireccionEnviada)
+        {
+            redireccionEnviada = true;
+            NavigationManager.NavigateTo("/Account/Login");
+        }
     }
 
     private void AlternarSidebar() => sidebarAbierto = !sidebarAbierto;
 
     private void CerrarSidebar() => sidebarAbierto = false;
+
+    private void CerrarSesion()
+    {
+        Sesion.CerrarSesion();
+        NavigationManager.NavigateTo("/Account/Login");
+    }
+
+    private void OnSesionCambio()
+    {
+        _ = InvokeAsync(() =>
+        {
+            if (!EsPersonalAutorizado)
+            {
+                redireccionEnviada = true;
+                NavigationManager.NavigateTo("/Account/Login");
+            }
+
+            StateHasChanged();
+        });
+    }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
@@ -116,5 +151,6 @@
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        Sesion.OnChange -= OnSesionCambio;
     }
 }

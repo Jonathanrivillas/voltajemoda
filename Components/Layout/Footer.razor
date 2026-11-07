@@ -1,8 +1,7 @@
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 
-@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IProductoApiClient ProductoApi
 
 <footer class="site-footer">
     <div class="container-fluid px-4 site-footer-top">
@@ -22,7 +21,7 @@
                 <ul class="site-footer-links">
                     @foreach (var categoria in categorias)
                     {
-                        <li><a href="@($"productos?categoriaId={categoria.Id}")">@categoria.Nombre</a></li>
+                        <li><a href="@($"productos?categoriaId={categoria.CategoriaId}")">@categoria.Nombre</a></li>
                     }
                 </ul>
             </div>
@@ -66,11 +65,10 @@
 </footer>
 
 @code {
-    private List<Categoria> categorias = new();
+    private List<CategoriaDto> categorias = new();
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        categorias = await db.Categorias.OrderBy(c => c.Nombre).ToListAsync();
+        categorias = await ProductoApi.ObtenerCategoriasAsync();
     }
 }

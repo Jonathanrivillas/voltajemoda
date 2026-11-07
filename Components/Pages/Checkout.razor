@@ -1,16 +1,11 @@
 @page "/checkout"
-@rendermode InteractiveServer
 
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 @using VoltajeModa.Services
 
-@inject ApplicationDbContext Db
-@inject CarritoService CarritoService
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IProductoApiClient ProductoApi
+@inject SesionUsuarioService Sesion
 @inject NavigationManager NavigationManager
 
 <PageTitle>Finalizar compra</PageTitle>
@@ -21,7 +16,12 @@
 {
     <Cargando />
 }
-else if (items is null || items.Count == 0)
+else if (Sesion.Rol != "Cliente")
+{
+    <EstadoVacio Mensaje="Inicia sesión con una cuenta de cliente para finalizar la compra."
+                 EnlaceTexto="Ingresar" EnlaceHref="/Account/Login" />
+}
+else if (carrito.Items.Count == 0)
 {
     <EstadoVacio Mensaje="Tu carrito está vacío." EnlaceTexto="Ver catálogo" EnlaceHref="/productos" />
 }
@@ -34,109 +34,52 @@ else
 
     <h5>Resumen del pedido</h5>
     <table class="table">
-        <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Talla / Color</th>
-                <th>Cantidad</th>
-                <th>Subtotal</th>
-            </tr>
-        </thead>
+        <thead><tr><th>Producto</th><th>Talla / Color</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
         <tbody>
-            @foreach (var item in items)
+            @foreach (var item in carrito.Items)
             {
                 <tr>
-                    <td>@item.ProductoVariante!.Producto!.Nombre</td>
-                    <td>@item.ProductoVariante.Talla / @item.ProductoVariante.Color</td>
+                    <td>@item.NombreProducto</td>
+                    <td>@item.Talla / @item.Color</td>
                     <td>@item.Cantidad</td>
-                    <td>@((item.ProductoVariante.Producto.PrecioEfectivo * item.Cantidad).ToString("C"))</td>
+                    <td>@item.Subtotal.ToString("C")</td>
                 </tr>
             }
         </tbody>
     </table>
-    <h4 class="text-end">Total: @total.ToString("C")</h4>
+    <h4 class="text-end">Total: @carrito.Total.ToString("C")</h4>
 
-    <hr />
-
-    <h5>Dirección de envío</h5>
-
-    @if (usuarioId is not null)
+    @if (direcciones.Count > 0)
     {
-        @if (direcciones.Count > 0 && !mostrarFormularioDireccion)
-        {
-            <select class="form-select mb-2" style="max-width: 400px;" @bind="selectedDireccionId">
-                @foreach (var direccion in direcciones)
-                {
-                    <option value="@direccion.Id">@direccion.Etiqueta: @direccion.Calle, @direccion.Ciudad, @direccion.CodigoPostal</option>
-                }
-            </select>
-            <button type="button" class="btn btn-link p-0 m-3" @onclick="() => mostrarFormularioDireccion = true">+ Agregar una nueva dirección</button>
-        }
-        else
-        {
-            <div class="account-card mb-3" style="max-width: 540px;">
-                <div class="account-card-header">
-                    <div class="account-card-icon"><IconoSvg Nombre="ubicacion" Width="20" Height="20" /></div>
-                    <div>
-                        <h2 class="account-card-title h6 mb-0">Nueva dirección de envío</h2>
-                        <p class="account-card-subtitle">Se guardará en tu cuenta para tus próximas compras.</p>
-                    </div>
-                </div>
-                <div class="account-card-body">
-                    @if (mensajeDireccion is not null)
-                    {
-                        <div class="alert alert-danger py-2">@mensajeDireccion</div>
-                    }
-                    <div class="row g-2">
-                        <div class="col-md-4">
-                            <select class="form-select" @bind="nuevaDireccionUsuario.Etiqueta">
-                                <option value="Casa">Casa</option>
-                                <option value="Trabajo">Trabajo</option>
-                                <option value="Otro">Otro</option>
-                            </select>
-                        </div>
-                        <div class="col-md-8">
-                            <input class="form-control" placeholder="Nombre de quien recibe" @bind="nuevaDireccionUsuario.NombreDestinatario" />
-                        </div>
-                        <div class="col-md-6">
-                            <input class="form-control" placeholder="Calle" @bind="nuevaDireccionUsuario.Calle" />
-                        </div>
-                        <div class="col-md-3">
-                            <input class="form-control" placeholder="Ciudad" @bind="nuevaDireccionUsuario.Ciudad" />
-                        </div>
-                        <div class="col-md-3">
-                            <input class="form-control" placeholder="Código postal" @bind="nuevaDireccionUsuario.CodigoPostal" />
-                        </div>
-                        <div class="col-md-6">
-                            <input class="form-control" placeholder="Teléfono de contacto" @bind="nuevaDireccionUsuario.Telefono" />
-                        </div>
-                        <div class="col-12 d-flex align-items-center gap-2 mt-1">
-                            <button type="button" class="btn btn-dark btn-sm" @onclick="GuardarDireccionUsuarioAsync">Guardar dirección</button>
-                            @if (direcciones.Count > 0)
-                            {
-                                <button type="button" class="btn btn-link btn-sm" @onclick="() => mostrarFormularioDireccion = false">Cancelar</button>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
+        <label class="form-label">Dirección guardada</label>
+        <select class="form-select mb-3" @bind="direccionSeleccionadaId">
+            @foreach (var direccion in direcciones)
+            {
+                <option value="@direccion.DireccionId">@direccion.Etiqueta: @direccion.DireccionFisica, @direccion.Ciudad</option>
+            }
+        </select>
     }
     else
     {
-        <p class="text-muted">Puedes comprar sin crear una cuenta — solo indica dónde enviamos tu pedido.</p>
-        <div class="row g-2 mb-3" style="max-width: 500px;">
-            <div class="col-12">
-                <input class="form-control" placeholder="Calle" @bind="nuevaDireccion.Calle" />
-            </div>
-            <div class="col-6">
-                <input class="form-control" placeholder="Ciudad" @bind="nuevaDireccion.Ciudad" />
-            </div>
-            <div class="col-6">
-                <input class="form-control" placeholder="Código postal" @bind="nuevaDireccion.CodigoPostal" />
-            </div>
+        <h5>Dirección de envío</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-md-4"><input class="form-control" placeholder="Etiqueta (Casa, Trabajo)" @bind="direccion.Etiqueta" /></div>
+            <div class="col-md-5"><input class="form-control" placeholder="Dirección" @bind="direccion.DireccionFisica" /></div>
+            <div class="col-md-3"><input class="form-control" placeholder="Ciudad" @bind="direccion.Ciudad" /></div>
         </div>
+        <button type="button" class="btn btn-outline-dark mb-3" @onclick="GuardarDireccion">Guardar dirección</button>
     }
+
+    <div class="mb-3">
+        <label class="form-label">Método de pago</label>
+        <select class="form-select" @bind="metodoPagoId">
+            <option value="0">Selecciona un método</option>
+            @foreach (var metodo in metodosPago)
+            {
+                <option value="@metodo.MetodoPagoId">@metodo.NombreMetodo</option>
+            }
+        </select>
+    </div>
 
     <button class="btn btn-dark" @onclick="ConfirmarPedido" disabled="@procesando">
         @(procesando ? "Procesando..." : "Confirmar pedido")
@@ -146,157 +89,69 @@ else
 @code {
     private bool cargado;
     private bool procesando;
-    private string? usuarioId;
-    private string? anonimoId;
-    private int? carritoId;
-    private List<CarritoItem>? items;
-    private List<Direccion> direcciones = new();
-    private int? selectedDireccionId;
-    private Direccion nuevaDireccion = new();
-    private Direccion nuevaDireccionUsuario = new();
-    private bool mostrarFormularioDireccion;
-    private string? mensajeDireccion;
-    private decimal total;
     private string? error;
+    private CarritoDto carrito = new();
+    private List<DireccionDto> direcciones = new();
+    private List<MetodoPagoDto> metodosPago = new();
+    private CrearDireccionApiDto direccion = new();
+    private int? direccionSeleccionadaId;
+    private int metodoPagoId;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        if (Sesion.Rol == "Cliente")
         {
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            usuarioId = authState.User.Identity?.IsAuthenticated == true
-                ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
-                : null;
-
-            var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
-            carritoId = carrito.Id;
-
-            if (usuarioId is not null)
-            {
-                direcciones = await Db.Direcciones.Where(d => d.UsuarioId == usuarioId).ToListAsync();
-                selectedDireccionId = direcciones.FirstOrDefault(d => d.EsPredeterminada)?.Id ?? direcciones.FirstOrDefault()?.Id;
-                mostrarFormularioDireccion = direcciones.Count == 0;
-            }
-            else
-            {
-                anonimoId = await CarritoService.ObtenerOCrearIdAnonimoAsync();
-            }
-
-            await CargarItemsAsync();
-            cargado = true;
-            StateHasChanged();
+            carrito = await ProductoApi.ObtenerCarritoAsync() ?? new();
+            direcciones = await ProductoApi.ObtenerDireccionesAsync();
+            metodosPago = await ProductoApi.ObtenerMetodosPagoAsync();
+            direccionSeleccionadaId = direcciones.FirstOrDefault()?.DireccionId;
         }
+
+        cargado = true;
     }
 
-    private async Task CargarItemsAsync()
+    private async Task GuardarDireccion()
     {
-        items = await Db.CarritoItems
-            .Where(i => i.CarritoId == carritoId)
-            .Include(i => i.ProductoVariante)
-                .ThenInclude(v => v!.Producto)
-            .ToListAsync();
-
-        total = items.Sum(i => i.ProductoVariante!.Producto!.PrecioEfectivo * i.Cantidad);
-    }
-
-    private async Task GuardarDireccionUsuarioAsync()
-    {
-        mensajeDireccion = null;
-
-        if (string.IsNullOrWhiteSpace(nuevaDireccionUsuario.Calle) ||
-            string.IsNullOrWhiteSpace(nuevaDireccionUsuario.Ciudad) ||
-            string.IsNullOrWhiteSpace(nuevaDireccionUsuario.CodigoPostal))
+        if (!await ProductoApi.CrearDireccionAsync(direccion))
         {
-            mensajeDireccion = "Completa calle, ciudad y código postal.";
+            error = "No se pudo guardar la dirección. Completa todos los campos.";
             return;
         }
 
-        nuevaDireccionUsuario.UsuarioId = usuarioId;
-        nuevaDireccionUsuario.EsPredeterminada = direcciones.Count == 0;
-
-        Db.Direcciones.Add(nuevaDireccionUsuario);
-        await Db.SaveChangesAsync();
-
-        direcciones.Add(nuevaDireccionUsuario);
-        selectedDireccionId = nuevaDireccionUsuario.Id;
-        mostrarFormularioDireccion = false;
-        nuevaDireccionUsuario = new();
+        direcciones = await ProductoApi.ObtenerDireccionesAsync();
+        direccionSeleccionadaId = direcciones.LastOrDefault()?.DireccionId;
     }
 
     private async Task ConfirmarPedido()
     {
         error = null;
-
-        if (items is null || items.Count == 0)
+        if (metodoPagoId <= 0)
         {
+            error = "Selecciona un método de pago.";
             return;
         }
 
-        foreach (var item in items)
+        var direccionEntrega = direccionSeleccionadaId is int selected
+            ? direcciones.FirstOrDefault(d => d.DireccionId == selected)
+            : null;
+
+        var dto = new RealizarPedidoApiDto
         {
-            if (item.Cantidad > item.ProductoVariante!.Stock)
-            {
-                error = $"No hay suficiente stock de {item.ProductoVariante.Producto!.Nombre} ({item.ProductoVariante.Talla}/{item.ProductoVariante.Color}).";
-                return;
-            }
-        }
-
-        int direccionId;
-
-        if (usuarioId is not null)
-        {
-            if (selectedDireccionId is null || mostrarFormularioDireccion)
-            {
-                error = "Guarda o selecciona una dirección de envío antes de continuar.";
-                return;
-            }
-
-            direccionId = selectedDireccionId.Value;
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(nuevaDireccion.Calle) ||
-                string.IsNullOrWhiteSpace(nuevaDireccion.Ciudad) ||
-                string.IsNullOrWhiteSpace(nuevaDireccion.CodigoPostal))
-            {
-                error = "Completa la dirección de envío.";
-                return;
-            }
-
-            nuevaDireccion.AnonimoId = anonimoId;
-            Db.Direcciones.Add(nuevaDireccion);
-            await Db.SaveChangesAsync();
-            direccionId = nuevaDireccion.Id;
-        }
-
-        procesando = true;
-
-        var pedido = new Pedido
-        {
-            UsuarioId = usuarioId,
-            AnonimoId = usuarioId is null ? anonimoId : null,
-            DireccionId = direccionId,
-            Fecha = DateTime.UtcNow,
-            Estado = EstadoPedido.Pendiente,
-            Total = total
+            DireccionEnvio = direccionEntrega?.DireccionFisica ?? direccion.DireccionFisica,
+            CiudadEnvio = direccionEntrega?.Ciudad ?? direccion.Ciudad,
+            MetodoPagoId = metodoPagoId
         };
 
-        foreach (var item in items)
-        {
-            pedido.Items.Add(new PedidoItem
-            {
-                ProductoVarianteId = item.ProductoVarianteId,
-                Cantidad = item.Cantidad,
-                PrecioUnitario = item.ProductoVariante!.Producto!.PrecioEfectivo
-            });
+        procesando = true;
+        var pedido = await ProductoApi.CrearPedidoAsync(dto);
+        procesando = false;
 
-            item.ProductoVariante.Stock -= item.Cantidad;
+        if (pedido is null || pedido.PedidoId <= 0)
+        {
+            error = "No se pudo procesar el pedido.";
+            return;
         }
 
-        Db.Pedidos.Add(pedido);
-        Db.CarritoItems.RemoveRange(items);
-        await Db.SaveChangesAsync();
-
-        NavigationManager.NavigateTo($"/pedidos/{pedido.Id}");
+        NavigationManager.NavigateTo($"/pedidos/{pedido.PedidoId}");
     }
 }

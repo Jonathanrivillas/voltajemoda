@@ -1,9 +1,8 @@
-@page "/productos"
-@rendermode InteractiveServer
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
+﻿@page "/productos"
 @using VoltajeModa.Models
-@inject ApplicationDbContext Db
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
+@inject IProductoApiClient ProductoApi
 
 <PageTitle>Productos</PageTitle>
 
@@ -35,7 +34,7 @@ else
                 <p class="catalogo-filtros-titulo">Precio</p>
                 <div class="catalogo-filtros-precio">
                     <input type="number" class="form-control form-control-sm" placeholder="Mín" min="0" @bind="precioMin" @bind:event="oninput" />
-                    <span class="text-muted">–</span>
+                    <span class="text-muted">—</span>
                     <input type="number" class="form-control form-control-sm" placeholder="Máx" min="0" @bind="precioMax" @bind:event="oninput" />
                 </div>
             </div>
@@ -141,26 +140,32 @@ else
         productos!
             .Where(p => selectedCategoriaId == 0 || p.CategoriaId == selectedCategoriaId)
             .Where(p => string.IsNullOrWhiteSpace(Buscar) || p.Nombre.Contains(Buscar, StringComparison.OrdinalIgnoreCase))
-            .Where(p => precioMin is null || p.PrecioEfectivo >= precioMin)
-            .Where(p => precioMax is null || p.PrecioEfectivo <= precioMax)
+            .Where(p => precioMin is null || p.Precio >= precioMin)
+            .Where(p => precioMax is null || p.Precio <= precioMax)
             .Where(p => !soloOferta || p.EnOferta)
             .Where(p => tallasSeleccionadas.Count == 0 || p.Variantes.Any(v => tallasSeleccionadas.Contains(v.Talla)))
             .Where(p => coloresSeleccionados.Count == 0 || p.Variantes.Any(v => coloresSeleccionados.Contains(v.Color)));
 
     protected override async Task OnInitializedAsync()
     {
-        productos = await Db.Productos
-            .Include(p => p.Categoria)
-            .Include(p => p.ImagenesAdicionales)
-            .Include(p => p.Variantes)
-            .ToListAsync();
+        await CargarProductosDesdeApiAsync();
+    }
+
+    private async Task CargarProductosDesdeApiAsync()
+    {
+        var respuesta = await ProductoApi.ObtenerCatalogoAsync(pagina: 1, tamanoPagina: 100);
+        if (respuesta?.Productos != null && respuesta.Productos.Count > 0)
+        {
+            productos = respuesta.Productos.Select(p => p.AModelo()).ToList();
+        }
+        else
+        {
+            productos = new List<Producto>();
+        }
     }
 
     protected override void OnParametersSet()
     {
-        // CategoriaId llega vía query string: el router reutiliza esta misma instancia al navegar
-        // entre categorías (no vuelve a llamar OnInitializedAsync), así que hay que releer el
-        // parámetro acá en cada navegación para que el filtro no quede pegado en el valor viejo.
         selectedCategoriaId = CategoriaId ?? 0;
     }
 

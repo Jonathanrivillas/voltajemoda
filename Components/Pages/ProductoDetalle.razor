@@ -1,17 +1,13 @@
 @page "/productos/{Id:int}"
-@rendermode InteractiveServer
-
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
 @using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 @using VoltajeModa.Services
 
-@inject ApplicationDbContext Db
-@inject CarritoService CarritoService
+@inject IProductoApiClient ProductoApi
+@inject SesionUsuarioService Sesion
 @inject CarritoEstadoService CarritoEstado
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
 
 <PageTitle>@(producto?.Nombre ?? "Producto")</PageTitle>
 
@@ -116,7 +112,7 @@ else
                                     title="@color"
                                     aria-label="@color"
                                     disabled="@sinStock"
-                                    @onclick="() => colorSeleccionado = color">
+                                    @onclick="() => SeleccionarColor(color)">
                                 @(hex is null ? color : "")
                             </button>
                         }
@@ -124,13 +120,22 @@ else
                 </div>
             }
 
+            @if (varianteSeleccionada is null || varianteSeleccionada.Stock <= 0)
+            {
+                <p class="text-danger fw-semibold">Agotado / Sin existencias</p>
+            }
+            else
+            {
+                <p class="text-success fw-semibold">Disponible (@varianteSeleccionada.Stock unidades)</p>
+            }
+
             <div class="producto-detalle-accion">
                 <div class="producto-detalle-stepper">
                     <button type="button" @onclick="DecrementarCantidad" aria-label="Reducir cantidad">&minus;</button>
                     <span>@cantidad</span>
-                    <button type="button" @onclick="IncrementarCantidad" aria-label="Aumentar cantidad">+</button>
+                    <button type="button" @onclick="IncrementarCantidad" disabled="@(varianteSeleccionada is null || cantidad >= varianteSeleccionada.Stock)" aria-label="Aumentar cantidad">+</button>
                 </div>
-                <button class="btn btn-dark producto-card-btn producto-detalle-btn" @onclick="AgregarAlCarrito" disabled="@(varianteSeleccionada is null)">
+                <button class="btn btn-dark producto-card-btn producto-detalle-btn" @onclick="AgregarAlCarrito" disabled="@(varianteSeleccionada is null || varianteSeleccionada.Stock <= 0 || cantidad > varianteSeleccionada.Stock)">
                     Agregar al carrito
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
                         <path d="m2.05 2.05 1.099-.028a1 1 0 0 1 1.008.815l2.69 14.347A1 1 0 0 0 7.83 18H18" />
@@ -203,11 +208,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        producto = await Db.Productos
-            .Include(p => p.Categoria)
-            .Include(p => p.Variantes)
-            .Include(p => p.ImagenesAdicionales)
-            .FirstOrDefaultAsync(p => p.Id == Id);
+        var detalle = await ProductoApi.ObtenerProductoPorIdAsync(Id);
+        producto = detalle?.AModelo();
 
         if (producto is not null)
         {
@@ -237,6 +239,13 @@ else
         var variantesDeLaTalla = producto!.Variantes.Where(v => v.Talla == talla).ToList();
         var conStock = variantesDeLaTalla.FirstOrDefault(v => v.Stock > 0);
         colorSeleccionado = (conStock ?? variantesDeLaTalla.FirstOrDefault())?.Color;
+        cantidad = 1;
+    }
+
+    private void SeleccionarColor(string color)
+    {
+        colorSeleccionado = color;
+        cantidad = 1;
     }
 
     private bool EsTallaSinStock(string talla)
@@ -260,7 +269,10 @@ else
 
     private void IncrementarCantidad()
     {
-        cantidad++;
+        if (varianteSeleccionada is not null && cantidad < varianteSeleccionada.Stock)
+        {
+            cantidad++;
+        }
     }
 
     private void ImagenAnterior()
@@ -276,37 +288,25 @@ else
     private async Task AgregarAlCarrito()
     {
         var variante = varianteSeleccionada;
-        if (variante is null || cantidad < 1)
+        if (variante is null || variante.Stock <= 0 || cantidad < 1 || cantidad > variante.Stock)
         {
             return;
         }
 
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var usuarioId = authState.User.Identity?.IsAuthenticated == true
-            ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
-            : null;
-
-        var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
-
-        var item = await Db.CarritoItems.FirstOrDefaultAsync(i =>
-            i.CarritoId == carrito.Id && i.ProductoVarianteId == variante.Id);
-
-        if (item is null)
+        if (Sesion.Rol != "Cliente")
         {
-            Db.CarritoItems.Add(new CarritoItem
-            {
-                CarritoId = carrito.Id,
-                ProductoVarianteId = variante.Id,
-                Cantidad = cantidad
-            });
+            NavigationManager.NavigateTo("/Account/Login");
+            return;
+        }
+
+        if (await ProductoApi.AgregarAlCarritoAsync(variante.Id, cantidad))
+        {
+            mensaje = "Producto agregado al carrito.";
+            CarritoEstado.Notificar();
         }
         else
         {
-            item.Cantidad += cantidad;
+            mensaje = "No se pudo agregar el producto. Revisa el stock e inténtalo de nuevo.";
         }
-
-        await Db.SaveChangesAsync();
-        mensaje = "Producto agregado al carrito.";
-        CarritoEstado.Notificar();
     }
 }

@@ -1,15 +1,10 @@
 @page "/Account/Manage/Direcciones"
-@rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 
-@inject UserManager<ApplicationUser> UserManager
-@inject ApplicationDbContext Db
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IProductoApiClient ProductoApi
 
 <PageTitle>Direcciones de envío</PageTitle>
 
@@ -22,80 +17,39 @@
         </div>
     </div>
     <div class="account-card-body">
-        @if (mensajeError is not null)
+        @if (error is not null)
         {
-            <div class="alert alert-danger">@mensajeError</div>
+            <div class="alert alert-danger">@error</div>
         }
-
         <EditForm Model="formulario" OnValidSubmit="GuardarDireccion" class="mb-4">
             <DataAnnotationsValidator />
             <ValidationSummary class="text-danger" />
             <div class="row g-3">
                 <div class="col-md-4">
-                    <div class="form-floating">
-                        <InputSelect @bind-Value="formulario.Etiqueta" id="etiqueta" class="form-select">
-                            <option value="Casa">Casa</option>
-                            <option value="Trabajo">Trabajo</option>
-                            <option value="Otro">Otro</option>
-                        </InputSelect>
-                        <label for="etiqueta">Etiqueta</label>
-                    </div>
+                    <label class="form-label">Etiqueta</label>
+                    <InputSelect @bind-Value="formulario.Etiqueta" class="form-select">
+                        <option value="Casa">Casa</option>
+                        <option value="Trabajo">Trabajo</option>
+                        <option value="Otro">Otro</option>
+                    </InputSelect>
                 </div>
-                <div class="col-md-4">
-                    <div class="form-floating">
-                        <InputText @bind-Value="formulario.NombreDestinatario" id="destinatario" class="form-control" placeholder=" " />
-                        <label for="destinatario">Nombre de quien recibe</label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-floating">
-                        <InputText @bind-Value="formulario.Telefono" id="telefono" class="form-control" placeholder=" " />
-                        <label for="telefono">Teléfono de contacto</label>
-                        <ValidationMessage For="() => formulario.Telefono" class="text-danger" />
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        <InputText @bind-Value="formulario.Calle" id="calle" class="form-control" placeholder=" " />
-                        <label for="calle">Calle</label>
-                        <ValidationMessage For="() => formulario.Calle" class="text-danger" />
-                    </div>
+                <div class="col-md-5">
+                    <label class="form-label">Dirección física</label>
+                    <InputText @bind-Value="formulario.DireccionFisica" class="form-control" />
+                    <ValidationMessage For="() => formulario.DireccionFisica" class="text-danger" />
                 </div>
                 <div class="col-md-3">
-                    <div class="form-floating">
-                        <InputText @bind-Value="formulario.Ciudad" id="ciudad" class="form-control" placeholder=" " />
-                        <label for="ciudad">Ciudad</label>
-                        <ValidationMessage For="() => formulario.Ciudad" class="text-danger" />
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-floating">
-                        <InputText @bind-Value="formulario.CodigoPostal" id="codigoPostal" class="form-control" placeholder=" " />
-                        <label for="codigoPostal">Código postal</label>
-                        <ValidationMessage For="() => formulario.CodigoPostal" class="text-danger" />
-                    </div>
+                    <label class="form-label">Ciudad</label>
+                    <InputText @bind-Value="formulario.Ciudad" class="form-control" />
+                    <ValidationMessage For="() => formulario.Ciudad" class="text-danger" />
                 </div>
                 <div class="col-12">
-                    <div class="form-check">
-                        <InputCheckbox @bind-Value="formulario.EsPredeterminada" id="predeterminada" class="form-check-input" />
-                        <label class="form-check-label" for="predeterminada">Usar como dirección predeterminada</label>
-                    </div>
-                </div>
-                <div class="col-12 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">@(editandoId is null ? "Agregar dirección" : "Guardar cambios")</button>
-                    @if (editandoId is not null)
-                    {
-                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelarEdicion">Cancelar</button>
-                    }
+                    <button type="submit" class="btn btn-primary">Agregar dirección</button>
                 </div>
             </div>
         </EditForm>
 
-        @if (direcciones is null)
-        {
-            <Cargando />
-        }
-        else if (direcciones.Count == 0)
+        @if (direcciones.Count == 0)
         {
             <EstadoVacio Mensaje="Todavía no tienes direcciones guardadas." />
         }
@@ -104,31 +58,10 @@
             <div class="account-address-grid">
                 @foreach (var direccion in direcciones)
                 {
-                    <div class="account-address-card @(direccion.EsPredeterminada ? "is-default" : "")">
-                        <div class="account-address-top">
-                            <span class="account-address-label">@direccion.Etiqueta</span>
-                            @if (direccion.EsPredeterminada)
-                            {
-                                <span class="account-address-default-badge">Predeterminada</span>
-                            }
-                        </div>
-                        @if (!string.IsNullOrWhiteSpace(direccion.NombreDestinatario))
-                        {
-                            <div class="account-address-name">@direccion.NombreDestinatario</div>
-                        }
-                        <p class="account-address-text">@direccion.Calle, @direccion.Ciudad, @direccion.CodigoPostal</p>
-                        @if (!string.IsNullOrWhiteSpace(direccion.Telefono))
-                        {
-                            <p class="account-address-text">@direccion.Telefono</p>
-                        }
-                        <div class="account-address-actions">
-                            @if (!direccion.EsPredeterminada)
-                            {
-                                <button type="button" class="btn btn-sm btn-outline-dark" @onclick="() => MarcarPredeterminada(direccion.Id)">Usar como predeterminada</button>
-                            }
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => EditarDireccion(direccion)">Editar</button>
-                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => EliminarDireccion(direccion.Id)">Eliminar</button>
-                        </div>
+                    <div class="account-address-card">
+                        <div class="account-address-top"><span class="account-address-label">@direccion.Etiqueta</span></div>
+                        <p class="account-address-text">@direccion.DireccionFisica, @direccion.Ciudad</p>
+                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => EliminarDireccion(direccion.DireccionId)">Eliminar</button>
                     </div>
                 }
             </div>
@@ -137,166 +70,52 @@
 </div>
 
 @code {
-    private string userId = string.Empty;
-    private List<Direccion>? direcciones;
+    private List<DireccionDto> direcciones = new();
     private DireccionInput formulario = new();
-    private int? editandoId;
-    private string? mensajeError;
+    private string? error;
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        userId = UserManager.GetUserId(authState.User) ?? string.Empty;
-        await CargarDirecciones();
-    }
-
-    private async Task CargarDirecciones()
-    {
-        direcciones = await Db.Direcciones
-            .Where(d => d.UsuarioId == userId)
-            .OrderByDescending(d => d.EsPredeterminada)
-            .ThenBy(d => d.Id)
-            .ToListAsync();
+        direcciones = await ProductoApi.ObtenerDireccionesAsync();
     }
 
     private async Task GuardarDireccion()
     {
-        mensajeError = null;
-        Direccion direccion;
-
-        if (editandoId is int id)
+        error = null;
+        if (!await ProductoApi.CrearDireccionAsync(new CrearDireccionApiDto
         {
-            var existente = await Db.Direcciones.FirstOrDefaultAsync(d => d.Id == id && d.UsuarioId == userId);
-            if (existente is null)
-            {
-                CancelarEdicion();
-                await CargarDirecciones();
-                return;
-            }
-
-            direccion = existente;
-        }
-        else
+            Etiqueta = formulario.Etiqueta,
+            DireccionFisica = formulario.DireccionFisica,
+            Ciudad = formulario.Ciudad
+        }))
         {
-            direccion = new Direccion { UsuarioId = userId };
-            Db.Direcciones.Add(direccion);
+            error = "No se pudo guardar la dirección.";
+            return;
         }
 
-        formulario.CopiarA(direccion);
-        await Db.SaveChangesAsync();
-
-        if (formulario.EsPredeterminada)
-        {
-            await DesmarcarOtrasAsync(direccion.Id);
-        }
-
-        CancelarEdicion();
-        await CargarDirecciones();
-    }
-
-    private void EditarDireccion(Direccion direccion)
-    {
-        editandoId = direccion.Id;
-        formulario = DireccionInput.DesdeEntidad(direccion);
-    }
-
-    private void CancelarEdicion()
-    {
-        editandoId = null;
         formulario = new();
-    }
-
-    private async Task MarcarPredeterminada(int id)
-    {
-        await using var transaccion = await Db.Database.BeginTransactionAsync();
-
-        await Db.Direcciones
-            .Where(d => d.UsuarioId == userId && d.Id != id)
-            .ExecuteUpdateAsync(s => s.SetProperty(d => d.EsPredeterminada, false));
-
-        await Db.Direcciones
-            .Where(d => d.Id == id && d.UsuarioId == userId)
-            .ExecuteUpdateAsync(s => s.SetProperty(d => d.EsPredeterminada, true));
-
-        await transaccion.CommitAsync();
-        await CargarDirecciones();
-    }
-
-    private async Task DesmarcarOtrasAsync(int idAConservar)
-    {
-        await Db.Direcciones
-            .Where(d => d.UsuarioId == userId && d.Id != idAConservar && d.EsPredeterminada)
-            .ExecuteUpdateAsync(s => s.SetProperty(d => d.EsPredeterminada, false));
+        direcciones = await ProductoApi.ObtenerDireccionesAsync();
     }
 
     private async Task EliminarDireccion(int id)
     {
-        mensajeError = null;
-
-        var tienePedidos = await Db.Pedidos.AnyAsync(p => p.DireccionId == id);
-        if (tienePedidos)
+        if (!await ProductoApi.EliminarDireccionAsync(id))
         {
-            mensajeError = "No puedes eliminar esta dirección porque tiene pedidos asociados.";
+            error = "No se pudo eliminar la dirección.";
             return;
         }
 
-        var direccion = await Db.Direcciones.FirstOrDefaultAsync(d => d.Id == id && d.UsuarioId == userId);
-        if (direccion is not null)
-        {
-            Db.Direcciones.Remove(direccion);
-            await Db.SaveChangesAsync();
-        }
-
-        if (editandoId == id)
-        {
-            CancelarEdicion();
-        }
-
-        await CargarDirecciones();
+        direcciones = await ProductoApi.ObtenerDireccionesAsync();
     }
 
     private sealed class DireccionInput
     {
-        [Required(ErrorMessage = "Elige una etiqueta.")]
         public string Etiqueta { get; set; } = "Casa";
 
-        [Display(Name = "Nombre de quien recibe")]
-        public string? NombreDestinatario { get; set; }
-
-        [Phone(ErrorMessage = "Ingresa un teléfono válido.")]
-        public string? Telefono { get; set; }
-
-        [Required(ErrorMessage = "Ingresa la calle.")]
-        public string Calle { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Ingresa la dirección.")]
+        public string DireccionFisica { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Ingresa la ciudad.")]
         public string Ciudad { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "Ingresa el código postal.")]
-        public string CodigoPostal { get; set; } = string.Empty;
-
-        public bool EsPredeterminada { get; set; }
-
-        public void CopiarA(Direccion destino)
-        {
-            destino.Etiqueta = Etiqueta;
-            destino.NombreDestinatario = NombreDestinatario;
-            destino.Telefono = Telefono;
-            destino.Calle = Calle;
-            destino.Ciudad = Ciudad;
-            destino.CodigoPostal = CodigoPostal;
-            destino.EsPredeterminada = EsPredeterminada;
-        }
-
-        public static DireccionInput DesdeEntidad(Direccion direccion) => new()
-        {
-            Etiqueta = direccion.Etiqueta,
-            NombreDestinatario = direccion.NombreDestinatario,
-            Telefono = direccion.Telefono,
-            Calle = direccion.Calle,
-            Ciudad = direccion.Ciudad,
-            CodigoPostal = direccion.CodigoPostal,
-            EsPredeterminada = direccion.EsPredeterminada,
-        };
     }
 }

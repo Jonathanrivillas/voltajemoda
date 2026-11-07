@@ -1,14 +1,10 @@
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 @using VoltajeModa.Services
 
-@inject ApplicationDbContext Db
-@inject CarritoService CarritoService
+@inject IProductoApiClient ProductoApi
 @inject CarritoEstadoService CarritoEstado
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionUsuarioService Sesion
 @inject IJSRuntime JS
 
 <div class="offcanvas offcanvas-end carrito-drawer" tabindex="-1" id="carritoDrawer" aria-labelledby="carritoDrawerLabel">
@@ -21,9 +17,11 @@
         {
             <Cargando />
         }
-        else if (items is null || items.Count == 0)
+        else if (items.Count == 0)
         {
-            <EstadoVacio Mensaje="Tu carrito de compras está vacío." EnlaceTexto="Explorar productos" EnlaceHref="/productos" />
+            <EstadoVacio Mensaje="@(Sesion.EstaAutenticado ? "Tu carrito de compras está vacío." : "Inicia sesión para consultar tu carrito.")"
+                        EnlaceTexto="@(Sesion.EstaAutenticado ? "Explorar productos" : "Ingresar")"
+                        EnlaceHref="@(Sesion.EstaAutenticado ? "/productos" : "/Account/Login")" />
         }
         else
         {
@@ -31,17 +29,16 @@
                 @foreach (var item in items)
                 {
                     <div class="carrito-drawer-item">
-                        <img src="@item.ProductoVariante!.Producto!.ImagenUrl" alt="@item.ProductoVariante.Producto.Nombre" class="carrito-drawer-item-img" />
                         <div class="carrito-drawer-item-info">
-                            <p class="carrito-drawer-item-nombre">@item.ProductoVariante.Producto.Nombre</p>
-                            <p class="carrito-drawer-item-variante">@item.ProductoVariante.Talla / @item.ProductoVariante.Color</p>
+                            <p class="carrito-drawer-item-nombre">@item.NombreProducto</p>
+                            <p class="carrito-drawer-item-variante">@item.Talla / @item.Color</p>
                             <div class="carrito-drawer-item-footer">
                                 <input type="number" class="form-control form-control-sm" min="1" style="width: 64px;" value="@item.Cantidad"
-                                       @onchange="@(e => ActualizarCantidad(item.Id, e.Value))" />
-                                <span class="carrito-drawer-item-precio">@((item.ProductoVariante.Producto.PrecioEfectivo * item.Cantidad).ToString("C"))</span>
+                                       @onchange="@(e => ActualizarCantidad(item.CarritoItemId, e.Value))" />
+                                <span class="carrito-drawer-item-precio">@item.Subtotal.ToString("C")</span>
                             </div>
                         </div>
-                        <button type="button" class="carrito-drawer-item-quitar" aria-label="Quitar" @onclick="() => EliminarItem(item.Id)">
+                        <button type="button" class="carrito-drawer-item-quitar" aria-label="Quitar" @onclick="() => EliminarItem(item.CarritoItemId)">
                             &times;
                         </button>
                     </div>
@@ -53,7 +50,7 @@
                     <span>Total</span>
                     <span>@total.ToString("C")</span>
                 </div>
-                <a href="/checkout" class="btn btn-dark w-100" data-bs-dismiss="offcanvas">Proceder al pago</a>
+                <a href="/carrito" class="btn btn-dark w-100" data-bs-dismiss="offcanvas">Proceder al pago</a>
                 <a href="/carrito" class="btn btn-link w-100" data-bs-dismiss="offcanvas">Ver carrito completo</a>
             </div>
         }
@@ -62,70 +59,41 @@
 
 @code {
     private bool cargado;
-    private int? carritoId;
-    private List<CarritoItem>? items;
+    private List<CarritoItemDto> items = new();
     private decimal total;
 
     public async Task AbrirAsync()
     {
         await CargarAsync();
-
-        // Sin este StateHasChanged, el render con los items recién cargados se despacha recién
-        // cuando termina este método (al volver del @onclick en NavMenu), lo que puede llegar
-        // después de que el JS ya haya mostrado el offcanvas -> se ve vacío un instante.
         StateHasChanged();
-
         await JS.InvokeVoidAsync("carritoUi.abrir", "carritoDrawer");
     }
 
     private async Task CargarAsync()
     {
         cargado = false;
-
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var usuarioId = authState.User.Identity?.IsAuthenticated == true
-            ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
-            : null;
-
-        var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
-        carritoId = carrito.Id;
-
-        items = await Db.CarritoItems
-            .Where(i => i.CarritoId == carritoId)
-            .Include(i => i.ProductoVariante)
-                .ThenInclude(v => v!.Producto)
-            .ToListAsync();
-
-        total = items.Sum(i => i.ProductoVariante!.Producto!.PrecioEfectivo * i.Cantidad);
+        var carrito = Sesion.Rol == "Cliente" ? await ProductoApi.ObtenerCarritoAsync() : null;
+        items = carrito?.Items ?? new();
+        total = carrito?.Total ?? 0;
         cargado = true;
     }
 
     private async Task ActualizarCantidad(int itemId, object? valor)
     {
-        if (int.TryParse(valor?.ToString(), out var nuevaCantidad) && nuevaCantidad >= 1)
+        if (int.TryParse(valor?.ToString(), out var nuevaCantidad) && nuevaCantidad >= 1
+            && await ProductoApi.ActualizarCantidadCarritoAsync(itemId, nuevaCantidad))
         {
-            var itemDb = await Db.CarritoItems.FindAsync(itemId);
-            if (itemDb is not null)
-            {
-                itemDb.Cantidad = nuevaCantidad;
-                await Db.SaveChangesAsync();
-            }
+            await CargarAsync();
+            CarritoEstado.Notificar();
         }
-
-        await CargarAsync();
-        CarritoEstado.Notificar();
     }
 
     private async Task EliminarItem(int itemId)
     {
-        var itemDb = await Db.CarritoItems.FindAsync(itemId);
-        if (itemDb is not null)
+        if (await ProductoApi.EliminarItemCarritoAsync(itemId))
         {
-            Db.CarritoItems.Remove(itemDb);
-            await Db.SaveChangesAsync();
+            await CargarAsync();
+            CarritoEstado.Notificar();
         }
-
-        await CargarAsync();
-        CarritoEstado.Notificar();
     }
 }

@@ -1,16 +1,13 @@
 @page "/carrito"
-@rendermode InteractiveServer
 
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using VoltajeModa.Data
-@using VoltajeModa.Models
+@using VoltajeModa.HttpServices
+@using VoltajeModa.HttpServices.Dtos
 @using VoltajeModa.Services
 
-@inject ApplicationDbContext Db
-@inject CarritoService CarritoService
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IProductoApiClient ProductoApi
+@inject SesionUsuarioService Sesion
+@inject CarritoEstadoService CarritoEstado
+@inject NavigationManager NavigationManager
 
 <PageTitle>Carrito</PageTitle>
 
@@ -20,114 +17,170 @@
 {
     <Cargando />
 }
-else if (items is null || items.Count == 0)
+else if (Sesion.Rol != "Cliente")
+{
+    <EstadoVacio Mensaje="Inicia sesión con una cuenta de cliente para consultar el carrito."
+                 EnlaceTexto="Ingresar" EnlaceHref="/Account/Login" />
+}
+else if (carrito.Items.Count == 0)
 {
     <EstadoVacio Mensaje="Tu carrito está vacío." EnlaceTexto="Ver catálogo" EnlaceHref="/productos" />
 }
 else
 {
+    @if (error is not null)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
     <table class="table align-middle">
         <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Talla / Color</th>
-                <th>Precio</th>
-                <th>Cantidad</th>
-                <th>Subtotal</th>
-                <th></th>
-            </tr>
+            <tr><th>Producto</th><th>Talla / Color</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th><th></th></tr>
         </thead>
         <tbody>
-            @foreach (var item in items)
+            @foreach (var item in carrito.Items)
             {
                 <tr>
-                    <td>
-                        @item.ProductoVariante!.Producto!.Nombre
-                        @if (item.ProductoVariante.Producto.EnOferta)
-                        {
-                            <span class="badge bg-dark ms-1">Oferta</span>
-                        }
-                    </td>
-                    <td>@item.ProductoVariante.Talla / @item.ProductoVariante.Color</td>
-                    <td>@item.ProductoVariante.Producto.PrecioEfectivo.ToString("C")</td>
+                    <td>@item.NombreProducto</td>
+                    <td>@item.Talla / @item.Color</td>
+                    <td>@item.PrecioUnitario.ToString("C")</td>
                     <td style="width: 120px;">
                         <input type="number" class="form-control" min="1" value="@item.Cantidad"
-                               @onchange="@(e => ActualizarCantidad(item.Id, e.Value))" />
+                               @onchange="@(e => ActualizarCantidad(item.CarritoItemId, e.Value))" />
                     </td>
-                    <td>@((item.ProductoVariante.Producto.PrecioEfectivo * item.Cantidad).ToString("C"))</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarItem(item.Id)">Eliminar</button>
-                    </td>
+                    <td>@item.Subtotal.ToString("C")</td>
+                    <td><button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarItem(item.CarritoItemId)">Eliminar</button></td>
                 </tr>
             }
         </tbody>
     </table>
 
-    <h4 class="text-end">Total: @total.ToString("C")</h4>
+    <h4 class="text-end">Total: @carrito.Total.ToString("C")</h4>
+    @if (direcciones.Count > 0)
+    {
+        <label class="form-label">Dirección de envío</label>
+        <select class="form-select mb-3" @bind="direccionSeleccionadaId">
+            @foreach (var direccionGuardada in direcciones)
+            {
+                <option value="@direccionGuardada.DireccionId">@direccionGuardada.Etiqueta: @direccionGuardada.DireccionFisica, @direccionGuardada.Ciudad</option>
+            }
+        </select>
+    }
+    else
+    {
+        <div class="row g-2 mb-3">
+            <div class="col-md-4"><input class="form-control" placeholder="Etiqueta" @bind="direccion.Etiqueta" /></div>
+            <div class="col-md-5"><input class="form-control" placeholder="Dirección" @bind="direccion.DireccionFisica" /></div>
+            <div class="col-md-3"><input class="form-control" placeholder="Ciudad" @bind="direccion.Ciudad" /></div>
+        </div>
+    }
+    <label class="form-label">Método de pago</label>
+    <select class="form-select mb-3" @bind="metodoPagoId">
+        <option value="0">Selecciona un método</option>
+        @foreach (var metodo in metodosPago)
+        {
+            <option value="@metodo.MetodoPagoId">@metodo.NombreMetodo</option>
+        }
+    </select>
     <div class="text-end">
-        <a href="/checkout" class="btn btn-dark">Proceder al pago</a>
+        <button class="btn btn-dark" @onclick="ConfirmarPedido" disabled="@procesando">
+            @(procesando ? "Procesando..." : "Confirmar y Pagar Pedido")
+        </button>
     </div>
 }
 
 @code {
     private bool cargado;
-    private int? carritoId;
-    private List<CarritoItem>? items;
-    private decimal total;
+    private bool procesando;
+    private string? error;
+    private CarritoDto carrito = new();
+    private List<DireccionDto> direcciones = new();
+    private List<MetodoPagoDto> metodosPago = new();
+    private CrearDireccionApiDto direccion = new();
+    private int? direccionSeleccionadaId;
+    private int metodoPagoId;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        if (Sesion.Rol == "Cliente")
         {
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var usuarioId = authState.User.Identity?.IsAuthenticated == true
-                ? authState.User.FindFirstValue(ClaimTypes.NameIdentifier)
-                : null;
-
-            var carrito = await CarritoService.ObtenerOCrearCarritoAsync(usuarioId);
-            carritoId = carrito.Id;
-
-            await CargarItemsAsync();
-            cargado = true;
-            StateHasChanged();
+            carrito = await ProductoApi.ObtenerCarritoAsync() ?? new();
+            direcciones = await ProductoApi.ObtenerDireccionesAsync();
+            metodosPago = await ProductoApi.ObtenerMetodosPagoAsync();
+            direccionSeleccionadaId = direcciones.FirstOrDefault()?.DireccionId;
         }
-    }
 
-    private async Task CargarItemsAsync()
-    {
-        items = await Db.CarritoItems
-            .Where(i => i.CarritoId == carritoId)
-            .Include(i => i.ProductoVariante)
-                .ThenInclude(v => v!.Producto)
-            .ToListAsync();
-
-        total = items.Sum(i => i.ProductoVariante!.Producto!.PrecioEfectivo * i.Cantidad);
+        cargado = true;
     }
 
     private async Task ActualizarCantidad(int itemId, object? valor)
     {
-        if (int.TryParse(valor?.ToString(), out var nuevaCantidad) && nuevaCantidad >= 1)
+        error = null;
+        if (!int.TryParse(valor?.ToString(), out var nuevaCantidad) || nuevaCantidad < 1
+            || !await ProductoApi.ActualizarCantidadCarritoAsync(itemId, nuevaCantidad))
         {
-            var itemDb = await Db.CarritoItems.FindAsync(itemId);
-            if (itemDb is not null)
-            {
-                itemDb.Cantidad = nuevaCantidad;
-                await Db.SaveChangesAsync();
-            }
+            error = "No se pudo actualizar la cantidad.";
+            return;
         }
 
-        await CargarItemsAsync();
+        await CargarAsync();
     }
 
     private async Task EliminarItem(int itemId)
     {
-        var itemDb = await Db.CarritoItems.FindAsync(itemId);
-        if (itemDb is not null)
+        error = null;
+        if (!await ProductoApi.EliminarItemCarritoAsync(itemId))
         {
-            Db.CarritoItems.Remove(itemDb);
-            await Db.SaveChangesAsync();
+            error = "No se pudo eliminar el producto del carrito.";
+            return;
         }
 
-        await CargarItemsAsync();
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        carrito = await ProductoApi.ObtenerCarritoAsync() ?? new();
+        CarritoEstado.Notificar();
+    }
+
+    private async Task ConfirmarPedido()
+    {
+        error = null;
+        var direccionEntrega = direccionSeleccionadaId is int id
+            ? direcciones.FirstOrDefault(d => d.DireccionId == id)
+            : null;
+
+        var direccionEnvio = direccionEntrega?.DireccionFisica ?? direccion.DireccionFisica;
+        var ciudadEnvio = direccionEntrega?.Ciudad ?? direccion.Ciudad;
+        if (string.IsNullOrWhiteSpace(direccionEnvio) || string.IsNullOrWhiteSpace(ciudadEnvio))
+        {
+            error = "Selecciona o ingresa una dirección de envío.";
+            return;
+        }
+        if (metodoPagoId <= 0)
+        {
+            error = "Selecciona un método de pago.";
+            return;
+        }
+
+        procesando = true;
+        var pedido = await ProductoApi.CrearPedidoAsync(new RealizarPedidoApiDto
+        {
+            DireccionEnvio = direccionEnvio,
+            CiudadEnvio = ciudadEnvio,
+            MetodoPagoId = metodoPagoId
+        });
+        procesando = false;
+
+        if (pedido is null || pedido.PedidoId <= 0)
+        {
+            error = "No se pudo procesar el pedido.";
+            return;
+        }
+
+        carrito = await ProductoApi.ObtenerCarritoAsync() ?? new();
+        CarritoEstado.Notificar();
+        NavigationManager.NavigateTo($"/pedidos/{pedido.PedidoId}");
     }
 }

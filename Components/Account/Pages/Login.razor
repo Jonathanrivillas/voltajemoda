@@ -1,15 +1,10 @@
 @page "/Account/Login"
 
 @using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Authentication
-@using Microsoft.AspNetCore.Identity
-@using VoltajeModa.Data
+@using VoltajeModa.HttpServices
 
-@inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
-@inject ILogger<Login> Logger
-@inject NavigationManager NavigationManager
-@inject IdentityRedirectManager RedirectManager
+@inject IProductoApiClient ProductoApi
+@inject NavigationManager Nav
 
 <PageTitle>Iniciar sesión · Voltaje Moda</PageTitle>
 
@@ -21,9 +16,12 @@
             <p class="auth-subtitle">Ingresa con tu correo y contraseña para continuar.</p>
         </div>
 
-        <StatusMessage Message="@errorMessage" />
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
 
-        <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
+        <EditForm Model="Input" method="post" OnValidSubmit="IniciarSesion" FormName="login">
             <DataAnnotationsValidator />
             <div class="form-floating mb-3">
                 <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true"/>
@@ -38,83 +36,38 @@
                 <ValidationMessage For="() => Input.Password" class="text-danger" />
             </div>
 
-            <div class="auth-row mb-4">
-                <label class="auth-checkbox">
-                    <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox form-check-input" />
-                    <span>Recordarme</span>
-                </label>
-                <a href="Account/ForgotPassword" class="auth-link">¿Olvidaste tu contraseña?</a>
-            </div>
-
             <button type="submit" class="w-100 btn btn-dark btn-lg auth-submit">Iniciar sesión</button>
         </EditForm>
 
-        <ExternalLoginPicker ReturnUrl="@ReturnUrl" />
-
         <p class="auth-footer-text">
             ¿No tienes cuenta?
-            <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Regístrate</a>
-        </p>
-        <p class="auth-footer-text auth-footer-text-muted">
-            <a href="Account/ResendEmailConfirmation">Reenviar confirmación de correo</a>
+            <a href="/Account/Register">Regístrate</a>
         </p>
     </div>
 </div>
 
 @code {
     private string? errorMessage;
-    private EditContext editContext = default!;
-
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
 
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;
 
-    [SupplyParameterFromQuery]
-    private string? ReturnUrl { get; set; }
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         Input ??= new();
-
-        editContext = new EditContext(Input);
-
-        if (HttpMethods.IsGet(HttpContext.Request.Method))
-        {
-            // Clear the existing external cookie to ensure a clean login process
-            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
-        }
     }
 
-    public async Task LoginUser()
+    private async Task IniciarSesion()
     {
-        if (!editContext.Validate())
+        errorMessage = null;
+        var inicioExitoso = await ProductoApi.IniciarSesionAsync(Input.Email, Input.Password);
+        if (inicioExitoso)
         {
-            return;
-        }
-
-        var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
-
-        if (result.Succeeded)
-        {
-            Logger.LogInformation("User logged in.");
-            RedirectManager.RedirectTo(ReturnUrl);
-        }
-        else if (result.RequiresTwoFactor)
-        {
-            RedirectManager.RedirectTo(
-                "Account/LoginWith2fa",
-                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });
-        }
-        else if (result.IsLockedOut)
-        {
-            Logger.LogWarning("User account locked out.");
-            RedirectManager.RedirectTo("Account/Lockout");
+            Nav.NavigateTo("/");
         }
         else
         {
-            errorMessage = "Error: Correo o contraseña incorrectos.";
+            errorMessage = "Correo o contraseña incorrectos. Inténtalo de nuevo.";
         }
     }
 
@@ -127,8 +80,5 @@
         [Required(ErrorMessage = "Ingresa tu contraseña.")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
-
-        [Display(Name = "Remember me?")]
-        public bool RememberMe { get; set; }
     }
 }
