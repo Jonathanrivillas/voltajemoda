@@ -71,11 +71,10 @@ else
                                     <td>@producto.Nombre</td>
                                     <td>@producto.NombreCategoria</td>
                                     <td>@producto.PrecioBase.ToString("C")</td>
-                                    <td><StockBadge Stock="StockTotal(producto)" /></td>
-                                    <td>@producto.Variantes.Count</td>
+                                    <td><StockBadge Stock="producto.Stock" /></td>
+                                    <td>@producto.CantidadVariantes</td>
                                     <td class="text-end">
                                         <a href="/admin/productos/@producto.ProductoId/editar" class="btn btn-outline-dark"><i class="bi bi-pencil"></i> Editar</a>
-                                        <a href="/admin/productos/@producto.ProductoId/editar" class="btn btn-dark">Variantes y Stock</a>
                                         <button class="btn btn-sm btn-outline-danger" @onclick="() => CambiarEstadoAsync(producto)">
                                             <i class="bi bi-eye-slash"></i> Desactivar
                                         </button>
@@ -110,8 +109,6 @@ else
         productos = catalogo?.Productos ?? new List<ProductoDto>();
     }
 
-    private static int StockTotal(ProductoDto producto) => producto.Variantes.Sum(v => v.Stock);
-
     private List<ProductoDto> ProductosFiltrados
     {
         get
@@ -131,9 +128,9 @@ else
 
             query = estadoStock switch
             {
-                "SinStock" => query.Where(p => StockTotal(p) == 0),
-                "StockBajo" => query.Where(p => StockTotal(p) > 0 && StockTotal(p) <= 5),
-                "EnStock" => query.Where(p => StockTotal(p) > 5),
+                "SinStock" => query.Where(p => p.Stock == 0),
+                "StockBajo" => query.Where(p => p.Stock > 0 && p.Stock <= 5),
+                "EnStock" => query.Where(p => p.Stock > 5),
                 _ => query
             };
 

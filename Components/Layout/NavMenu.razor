@@ -91,7 +91,7 @@
                                 }
                                 <li><hr class="dropdown-divider" /></li>
                                 <li>
-                                    <button type="button" class="dropdown-item user-dropdown-link user-dropdown-logout" @onclick="CerrarSesion">
+                                    <button type="button" class="dropdown-item user-dropdown-link user-dropdown-logout" @onclick="CerrarSesionAsync">
                                         <IconoSvg Nombre="salir" />
                                         <span>Cerrar sesión</span>
                                     </button>
@@ -205,13 +205,25 @@
         cantidadCarrito = carrito?.Items.Sum(i => i.Cantidad) ?? 0;
     }
 
-    private async void OnCarritoCambio()
+    private void OnCarritoCambio()
     {
-        await InvokeAsync(async () =>
+        _ = ActualizarCarritoAsync();
+    }
+
+    private async Task ActualizarCarritoAsync()
+    {
+        try
         {
-            await ActualizarContadorAsync();
-            StateHasChanged();
-        });
+            await InvokeAsync(async () =>
+            {
+                await ActualizarContadorAsync();
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[NavMenu] Error al actualizar el carrito: {ex.Message}");
+        }
     }
 
     private async Task AbrirCarrito()
@@ -239,9 +251,9 @@
         });
     }
 
-    private void CerrarSesion()
+    private async Task CerrarSesionAsync()
     {
-        Sesion.CerrarSesion();
+        await Sesion.CerrarSesionAsync();
         NavigationManager.NavigateTo("/");
     }
 

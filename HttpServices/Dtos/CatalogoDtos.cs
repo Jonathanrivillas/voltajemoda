@@ -51,6 +51,12 @@ public class ProductoDto
     [JsonPropertyName("activo")]
     public bool Activo { get; set; }
 
+    [JsonPropertyName("cantidadVariantes")]
+    public int CantidadVariantes { get; set; }
+
+    [JsonPropertyName("stock")]
+    public int Stock { get; set; }
+
     public bool EnOferta { get; set; }
     public decimal? PrecioOferta { get; set; }
     public bool EsNuevo { get; set; }
@@ -134,7 +140,7 @@ public class VarianteDto
     [JsonPropertyName("varianteId")]
     public int VarianteId { get; set; }
 
-    [JsonPropertyName("sku_Variante")]
+    [JsonPropertyName("skuVariante")]
     public string SkuVariante { get; set; } = string.Empty;
 
     [JsonPropertyName("talla")]

@@ -6,6 +6,7 @@ public class CrearVarianteApiDto
     public string SKU_Variante { get; set; } = string.Empty;
     public string? Talla { get; set; }
     public string? Color { get; set; }
+    public int StockInicial { get; set; }
 }
 
 public class AgregarImagenApiDto

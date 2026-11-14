@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Json;
 using System.Net.Http.Headers;
+using System.Net;
 using Microsoft.Extensions.Logging;
 using VoltajeModa.HttpServices.Dtos;
 using VoltajeModa.Services;
@@ -154,7 +155,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Put, $"Productos/{id}/estado");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -211,7 +212,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Delete, $"Variantes/{varianteId}");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -227,7 +228,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Put, $"Variantes/{varianteId}/estado");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -275,7 +276,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Delete, $"ProductoImagenes/{imagenId}");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -332,7 +333,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Delete, $"Carrito/items/{itemId}");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -375,7 +376,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Delete, $"Direcciones/{direccionId}");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -439,6 +440,31 @@ public class ProductoApiClient : IProductoApiClient
         }
     }
 
+    public async Task<CuponValidadoDto?> ValidarCuponAsync(string codigo)
+    {
+        try
+        {
+            using var respuesta = await EnviarPostAutenticadoAsync("Cupones/validar", new { Codigo = codigo });
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("No se pudo validar el cupón. Código HTTP: {StatusCode}.", respuesta.StatusCode);
+                return null;
+            }
+
+            return await respuesta.Content.ReadFromJsonAsync<CuponValidadoDto>();
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Error al validar el cupón.");
+            return null;
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _logger.LogError(ex, "No se pudo leer la respuesta de validación del cupón.");
+            return null;
+        }
+    }
+
     public async Task<PedidoCreadoDto?> CrearPedidoAsync(RealizarPedidoApiDto dto)
     {
         try
@@ -459,6 +485,7 @@ public class ProductoApiClient : IProductoApiClient
         catch (System.Text.Json.JsonException ex)
         {
             _logger.LogError(ex, "No se pudo leer la respuesta de checkout.");
+            Console.Error.WriteLine($"[ProductoApiClient] Error en Pedidos: {ex.Message}");
             return null;
         }
     }
@@ -613,7 +640,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Put, $"Usuarios/clientes/{usuarioId}/estado");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -629,7 +656,7 @@ public class ProductoApiClient : IProductoApiClient
         {
             using var solicitud = new HttpRequestMessage(HttpMethod.Put, $"Usuarios/empleados/{usuarioId}/estado");
             AgregarToken(solicitud);
-            using var respuesta = await _http.SendAsync(solicitud);
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
             return respuesta.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -699,15 +726,19 @@ public class ProductoApiClient : IProductoApiClient
 
     public async Task<bool> IniciarSesionAsync(string correo, string password)
     {
-        _sesion.CerrarSesion();
+        await _sesion.CerrarSesionAsync();
 
         try
         {
-            using var respuesta = await _http.PostAsJsonAsync("Auth/login", new
+            using var solicitud = new HttpRequestMessage(HttpMethod.Post, "Auth/login")
             {
-                CorreoElectronico = correo,
-                Password = password
-            });
+                Content = JsonContent.Create(new
+                {
+                    CorreoElectronico = correo,
+                    Password = password
+                })
+            };
+            using var respuesta = await EnviarSolicitudAsync(solicitud);
 
             if (respuesta.StatusCode != System.Net.HttpStatusCode.OK)
             {
@@ -721,17 +752,19 @@ public class ProductoApiClient : IProductoApiClient
                 return false;
             }
 
-            _sesion.IniciarSesion(resultado.Token, correo, resultado.Rol);
+            await _sesion.IniciarSesionAsync(resultado.Token, correo, resultado.Rol);
             return true;
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error al iniciar sesión con el backend.");
+            Console.Error.WriteLine($"[ProductoApiClient] Error en Auth/login: {ex.Message}");
             return false;
         }
         catch (System.Text.Json.JsonException ex)
         {
             _logger.LogError(ex, "No se pudo leer la respuesta de inicio de sesión del backend.");
+            Console.Error.WriteLine($"[ProductoApiClient] Error en Auth/login: {ex.Message}");
             return false;
         }
     }
@@ -750,16 +783,67 @@ public class ProductoApiClient : IProductoApiClient
 
         AgregarToken(solicitud);
 
-        return await _http.SendAsync(solicitud);
+        return await EnviarSolicitudAsync(solicitud);
     }
 
     private async Task<T?> ObtenerJsonAsync<T>(string url)
     {
         using var solicitud = new HttpRequestMessage(HttpMethod.Get, url);
         AgregarToken(solicitud);
-        using var respuesta = await _http.SendAsync(solicitud);
+        using var respuesta = await EnviarSolicitudAsync(solicitud);
         respuesta.EnsureSuccessStatusCode();
-        return await respuesta.Content.ReadFromJsonAsync<T>();
+        try
+        {
+            return await respuesta.Content.ReadFromJsonAsync<T>();
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            Console.Error.WriteLine($"[ProductoApiClient] Error en {url}: {ex.Message}");
+            throw;
+        }
+    }
+
+    private async Task<HttpResponseMessage> EnviarSolicitudAsync(HttpRequestMessage solicitud)
+    {
+        var endpoint = solicitud.RequestUri?.ToString() ?? "endpoint desconocido";
+        try
+        {
+            var respuesta = await _http.SendAsync(solicitud);
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                var detalle = await respuesta.Content.ReadAsStringAsync();
+                var mensaje = $"[ProductoApiClient] Error en {endpoint}: HTTP {(int)respuesta.StatusCode} ({respuesta.StatusCode}). {detalle}";
+                Console.Error.WriteLine(mensaje);
+                _logger.LogError("{ApiError}", mensaje);
+            }
+
+            return respuesta;
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.Error.WriteLine($"[ProductoApiClient] Error en {endpoint}: {ex.Message}");
+            throw;
+        }
+        catch (TaskCanceledException ex)
+        {
+            Console.Error.WriteLine($"[ProductoApiClient] Timeout con el backend en {endpoint}: {ex.Message}");
+            _logger.LogWarning(ex, "Timeout con el backend al consultar {Endpoint}.", endpoint);
+            return new HttpResponseMessage(HttpStatusCode.GatewayTimeout)
+            {
+                RequestMessage = solicitud,
+                Content = JsonContent.Create(new { mensaje = "El servicio está tardando en responder. Intenta de nuevo en unos momentos." })
+            };
+        }
+        catch (TimeoutException ex)
+        {
+            Console.Error.WriteLine($"[ProductoApiClient] Timeout con el backend en {endpoint}: {ex.Message}");
+            _logger.LogWarning(ex, "Timeout con el backend al consultar {Endpoint}.", endpoint);
+            return new HttpResponseMessage(HttpStatusCode.GatewayTimeout)
+            {
+                RequestMessage = solicitud,
+                Content = JsonContent.Create(new { mensaje = "El servicio está tardando en responder. Intenta de nuevo en unos momentos." })
+            };
+        }
     }
 
     private void AgregarToken(HttpRequestMessage solicitud)

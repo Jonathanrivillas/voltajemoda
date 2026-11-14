@@ -85,7 +85,7 @@ else
                         <li><span class="dropdown-item-text">@Sesion.Rol</span></li>
                         <li><NavLink class="dropdown-item" href="/">Volver al sitio</NavLink></li>
                         <li><hr class="dropdown-divider" /></li>
-                        <li><button type="button" class="dropdown-item" @onclick="CerrarSesion">Cerrar sesión</button></li>
+                        <li><button type="button" class="dropdown-item" @onclick="CerrarSesionAsync">Cerrar sesión</button></li>
                     </ul>
                 </div>
             </div>
@@ -111,6 +111,11 @@ else
 
     protected override void OnAfterRender(bool firstRender)
     {
+        if (!Sesion.Inicializada)
+        {
+            return;
+        }
+
         if (!EsPersonalAutorizado && !redireccionEnviada)
         {
             redireccionEnviada = true;
@@ -122,9 +127,9 @@ else
 
     private void CerrarSidebar() => sidebarAbierto = false;
 
-    private void CerrarSesion()
+    private async Task CerrarSesionAsync()
     {
-        Sesion.CerrarSesion();
+        await Sesion.CerrarSesionAsync();
         NavigationManager.NavigateTo("/Account/Login");
     }
 

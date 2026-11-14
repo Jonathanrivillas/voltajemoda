@@ -71,6 +71,13 @@ public class RealizarPedidoApiDto
     public int? CuponId { get; set; }
 }
 
+public class CuponValidadoDto
+{
+    public int CuponId { get; set; }
+    public string Codigo { get; set; } = string.Empty;
+    public decimal PorcentajeDescuento { get; set; }
+}
+
 public class PedidoCreadoDto
 {
     public int PedidoId { get; set; }

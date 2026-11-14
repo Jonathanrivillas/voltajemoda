@@ -6,6 +6,7 @@
 @inject CarritoEstadoService CarritoEstado
 @inject SesionUsuarioService Sesion
 @inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 
 <div class="offcanvas offcanvas-end carrito-drawer" tabindex="-1" id="carritoDrawer" aria-labelledby="carritoDrawerLabel">
     <div class="offcanvas-header">
@@ -50,8 +51,7 @@
                     <span>Total</span>
                     <span>@total.ToString("C")</span>
                 </div>
-                <a href="/carrito" class="btn btn-dark w-100" data-bs-dismiss="offcanvas">Proceder al pago</a>
-                <a href="/carrito" class="btn btn-link w-100" data-bs-dismiss="offcanvas">Ver carrito completo</a>
+                <button type="button" class="btn btn-dark w-100" @onclick="IrAlCarritoAsync">Ver carrito</button>
             </div>
         }
     </div>
@@ -95,5 +95,11 @@
             await CargarAsync();
             CarritoEstado.Notificar();
         }
+    }
+
+    private async Task IrAlCarritoAsync()
+    {
+        await JS.InvokeVoidAsync("carritoUi.cerrar", "carritoDrawer");
+        NavigationManager.NavigateTo("/carrito");
     }
 }

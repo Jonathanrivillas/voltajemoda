@@ -67,7 +67,9 @@ else
                 </div>
                 <div class="mb-3">
                     <label class="form-label">URL de imagen principal</label>
-                    <InputText class="form-control" @bind-Value="producto.ImagenUrl" />
+                    <InputText class="form-control" maxlength="255" @bind-Value="producto.ImagenUrl" />
+                    <ValidationMessage For="() => producto.ImagenUrl" class="text-danger small" />
+                    <div class="form-text">La URL puede tener hasta 255 caracteres.</div>
                 </div>
                 <button type="submit" class="btn btn-dark">Guardar producto</button>
             </AdminCard>
@@ -202,7 +204,8 @@ else
             SKU_Base = producto.SKU_Base,
             Nombre = producto.Nombre,
             Descripcion = producto.Descripcion,
-            PrecioBase = producto.PrecioBase
+            PrecioBase = producto.PrecioBase,
+            UrlImagen = producto.ImagenUrl
         };
 
         var guardado = Id is int productoId
@@ -243,20 +246,11 @@ else
         }
 
         nuevaVariante.ProductoId = producto.Id;
+        nuevaVariante.StockInicial = stockInicial;
         if (!await ProductoApi.CrearVarianteAsync(nuevaVariante))
         {
             error = "No se pudo crear la variante.";
             return;
-        }
-
-        if (stockInicial > 0)
-        {
-            var variantes = await ProductoApi.ObtenerVariantesAsync(producto.Id);
-            var variante = variantes.FirstOrDefault(v => v.SkuVariante == nuevaVariante.SKU_Variante);
-            if (variante is not null && !await ProductoApi.AjustarInventarioAsync(variante.VarianteId, stockInicial, "Stock inicial"))
-            {
-                error = "La variante se creó, pero no se pudo registrar el stock inicial.";
-            }
         }
 
         producto.Variantes = await ProductoApi.ObtenerVariantesAsync(producto.Id);
@@ -319,7 +313,7 @@ else
         {
             ProductoId = producto.Id,
             UrlImagen = nuevaImagenUrl,
-            Orden = producto.Imagenes.Count
+            Orden = producto.Imagenes.Count == 0 ? 1 : producto.Imagenes.Max(i => i.Orden) + 1
         };
 
         if (!await ProductoApi.AgregarImagenAsync(imagen))
@@ -362,6 +356,7 @@ else
         [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a cero.")]
         public decimal PrecioBase { get; set; }
 
+        [StringLength(255, ErrorMessage = "La URL de imagen no puede exceder los 255 caracteres.")]
         public string ImagenUrl { get; set; } = string.Empty;
         public List<VarianteDto> Variantes { get; set; } = new();
         public List<ImagenDto> Imagenes { get; set; } = new();

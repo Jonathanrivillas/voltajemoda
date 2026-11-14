@@ -45,8 +45,15 @@ else
                     <td>@item.Talla / @item.Color</td>
                     <td>@item.PrecioUnitario.ToString("C")</td>
                     <td style="width: 120px;">
-                        <input type="number" class="form-control" min="1" value="@item.Cantidad"
-                               @onchange="@(e => ActualizarCantidad(item.CarritoItemId, e.Value))" />
+                        <div class="input-group">
+                            <button class="btn btn-outline-secondary" type="button" aria-label="Disminuir cantidad"
+                                    disabled="@(item.Cantidad <= 1)"
+                                    @onclick="() => ActualizarCantidad(item.CarritoItemId, item.Cantidad - 1)">-</button>
+                            <span class="carrito-cantidad"
+                                  style="width: 44px; padding: 0; text-align: center; color: #111111; font-weight: 600; background: #ffffff; border-top: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; display: inline-flex; align-items: center; justify-content: center;">@item.Cantidad</span>
+                            <button class="btn btn-outline-secondary" type="button" aria-label="Aumentar cantidad"
+                                    @onclick="() => ActualizarCantidad(item.CarritoItemId, item.Cantidad + 1)">+</button>
+                        </div>
                     </td>
                     <td>@item.Subtotal.ToString("C")</td>
                     <td><button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarItem(item.CarritoItemId)">Eliminar</button></td>
@@ -55,25 +62,52 @@ else
         </tbody>
     </table>
 
-    <h4 class="text-end">Total: @carrito.Total.ToString("C")</h4>
+    <div class="row justify-content-end mb-3">
+        <div class="col-md-5 col-lg-4">
+            <label class="form-label" for="codigoCupon">Cupón de descuento</label>
+            <div class="input-group">
+                <input id="codigoCupon" class="form-control" placeholder="Ingresa tu código"
+                       @bind="codigoCupon" />
+                <button class="btn btn-outline-dark" type="button" @onclick="AplicarCuponAsync"
+                        disabled="@validandoCupon">Aplicar</button>
+            </div>
+            @if (cuponAplicado is not null)
+            {
+                <div class="form-text text-success">
+                    Cupón @cuponAplicado.Codigo aplicado: @cuponAplicado.PorcentajeDescuento% de descuento.
+                </div>
+            }
+        </div>
+    </div>
+    <div class="text-end">
+        @if (cuponAplicado is not null)
+        {
+            <p class="mb-1">Subtotal: @carrito.Total.ToString("C")</p>
+            <p class="mb-1">Descuento: -@Descuento.ToString("C")</p>
+        }
+        <h4>Total: @TotalConDescuento.ToString("C")</h4>
+    </div>
     @if (direcciones.Count > 0)
     {
-        <label class="form-label">Dirección de envío</label>
-        <select class="form-select mb-3" @bind="direccionSeleccionadaId">
+        <label class="form-label" for="direccionGuardada">Dirección guardada</label>
+        <select id="direccionGuardada" class="form-select mb-3" @bind="direccionSeleccionadaId"
+                @bind:after="ActualizarDireccionSeleccionadaAsync">
             @foreach (var direccionGuardada in direcciones)
             {
                 <option value="@direccionGuardada.DireccionId">@direccionGuardada.Etiqueta: @direccionGuardada.DireccionFisica, @direccionGuardada.Ciudad</option>
             }
         </select>
     }
-    else
-    {
-        <div class="row g-2 mb-3">
-            <div class="col-md-4"><input class="form-control" placeholder="Etiqueta" @bind="direccion.Etiqueta" /></div>
-            <div class="col-md-5"><input class="form-control" placeholder="Dirección" @bind="direccion.DireccionFisica" /></div>
-            <div class="col-md-3"><input class="form-control" placeholder="Ciudad" @bind="direccion.Ciudad" /></div>
+    <div class="row g-2 mb-3">
+        <div class="col-md-8">
+            <label class="form-label" for="direccionEnvio">Dirección</label>
+            <input id="direccionEnvio" class="form-control" placeholder="Dirección" @bind="direccion.DireccionFisica" />
         </div>
-    }
+        <div class="col-md-4">
+            <label class="form-label" for="ciudadEnvio">Ciudad</label>
+            <input id="ciudadEnvio" class="form-control" placeholder="Ciudad" @bind="direccion.Ciudad" />
+        </div>
+    </div>
     <label class="form-label">Método de pago</label>
     <select class="form-select mb-3" @bind="metodoPagoId">
         <option value="0">Selecciona un método</option>
@@ -92,13 +126,20 @@ else
 @code {
     private bool cargado;
     private bool procesando;
+    private bool validandoCupon;
     private string? error;
+    private string codigoCupon = string.Empty;
     private CarritoDto carrito = new();
+    private CuponValidadoDto? cuponAplicado;
     private List<DireccionDto> direcciones = new();
     private List<MetodoPagoDto> metodosPago = new();
     private CrearDireccionApiDto direccion = new();
     private int? direccionSeleccionadaId;
     private int metodoPagoId;
+    private decimal Descuento => cuponAplicado is null
+        ? 0
+        : carrito.Total * cuponAplicado.PorcentajeDescuento / 100m;
+    private decimal TotalConDescuento => carrito.Total - Descuento;
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,6 +149,7 @@ else
             direcciones = await ProductoApi.ObtenerDireccionesAsync();
             metodosPago = await ProductoApi.ObtenerMetodosPagoAsync();
             direccionSeleccionadaId = direcciones.FirstOrDefault()?.DireccionId;
+            ActualizarDireccionDesdeSeleccion();
         }
 
         cargado = true;
@@ -144,15 +186,48 @@ else
         CarritoEstado.Notificar();
     }
 
+    private Task ActualizarDireccionSeleccionadaAsync()
+    {
+        ActualizarDireccionDesdeSeleccion();
+        return Task.CompletedTask;
+    }
+
+    private void ActualizarDireccionDesdeSeleccion()
+    {
+        var direccionGuardada = direcciones.FirstOrDefault(d => d.DireccionId == direccionSeleccionadaId);
+        if (direccionGuardada is null)
+        {
+            return;
+        }
+
+        direccion.DireccionFisica = direccionGuardada.DireccionFisica;
+        direccion.Ciudad = direccionGuardada.Ciudad;
+    }
+
+    private async Task AplicarCuponAsync()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(codigoCupon))
+        {
+            cuponAplicado = null;
+            error = "Ingresa un código de cupón.";
+            return;
+        }
+
+        validandoCupon = true;
+        cuponAplicado = await ProductoApi.ValidarCuponAsync(codigoCupon.Trim());
+        validandoCupon = false;
+        if (cuponAplicado is null)
+        {
+            error = "El cupón no es válido o no está vigente.";
+        }
+    }
+
     private async Task ConfirmarPedido()
     {
         error = null;
-        var direccionEntrega = direccionSeleccionadaId is int id
-            ? direcciones.FirstOrDefault(d => d.DireccionId == id)
-            : null;
-
-        var direccionEnvio = direccionEntrega?.DireccionFisica ?? direccion.DireccionFisica;
-        var ciudadEnvio = direccionEntrega?.Ciudad ?? direccion.Ciudad;
+        var direccionEnvio = direccion.DireccionFisica;
+        var ciudadEnvio = direccion.Ciudad;
         if (string.IsNullOrWhiteSpace(direccionEnvio) || string.IsNullOrWhiteSpace(ciudadEnvio))
         {
             error = "Selecciona o ingresa una dirección de envío.";
@@ -169,7 +244,8 @@ else
         {
             DireccionEnvio = direccionEnvio,
             CiudadEnvio = ciudadEnvio,
-            MetodoPagoId = metodoPagoId
+            MetodoPagoId = metodoPagoId,
+            CuponId = cuponAplicado?.CuponId
         });
         procesando = false;
 

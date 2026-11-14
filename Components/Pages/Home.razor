@@ -20,7 +20,9 @@
 else if (slidesActivos.Count == 0)
 {
     <div class="hero-full">
-        <img src="https://picsum.photos/seed/voltaje-hero/1600/700" alt="Nueva colección Voltaje Moda" />
+        <img src="https://picsum.photos/seed/voltaje-hero/1600/700" alt="Nueva colección Voltaje Moda"
+             referrerpolicy="no-referrer"
+             onerror="this.onerror=null; this.src='https://placehold.co/600x400/222/white?text=Voltaje+Moda';" />
     </div>
 }
 else
@@ -34,12 +36,16 @@ else
                     @if (!string.IsNullOrWhiteSpace(slide.EnlaceUrl))
                     {
                         <a href="@slide.EnlaceUrl">
-                            <img src="@slide.ImagenUrl" alt="@(slide.Titulo ?? "Voltaje Moda")" />
+                            <img src="@(string.IsNullOrWhiteSpace(slide.ImagenUrl) ? "https://placehold.co/600x400/222/white?text=Voltaje+Moda" : slide.ImagenUrl)" alt="@(slide.Titulo ?? "Voltaje Moda")"
+                                 referrerpolicy="no-referrer"
+                                 onerror="this.onerror=null; this.src='https://placehold.co/600x400/222/white?text=Voltaje+Moda';" />
                         </a>
                     }
                     else
                     {
-                        <img src="@slide.ImagenUrl" alt="@(slide.Titulo ?? "Voltaje Moda")" />
+                        <img src="@(string.IsNullOrWhiteSpace(slide.ImagenUrl) ? "https://placehold.co/600x400/222/white?text=Voltaje+Moda" : slide.ImagenUrl)" alt="@(slide.Titulo ?? "Voltaje Moda")"
+                             referrerpolicy="no-referrer"
+                             onerror="this.onerror=null; this.src='https://placehold.co/600x400/222/white?text=Voltaje+Moda';" />
                     }
                 </div>
             }

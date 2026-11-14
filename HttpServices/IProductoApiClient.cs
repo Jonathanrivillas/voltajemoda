@@ -31,6 +31,7 @@ public interface IProductoApiClient
     Task<bool> ActualizarPerfilAsync(ActualizarPerfilApiDto dto);
     Task<bool> CambiarPasswordAsync(CambiarPasswordApiDto dto);
     Task<List<MetodoPagoDto>> ObtenerMetodosPagoAsync();
+    Task<CuponValidadoDto?> ValidarCuponAsync(string codigo);
     Task<PedidoCreadoDto?> CrearPedidoAsync(RealizarPedidoApiDto dto);
     Task<List<PedidoResumenDto>> ObtenerMisPedidosAsync();
     Task<PedidoClienteDto?> ObtenerMiPedidoAsync(int pedidoId);

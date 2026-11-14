@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@using VoltajeModa.Services
+@inject SesionUsuarioService Sesion
 
 <div class="page d-flex flex-column min-vh-100">
     <NavMenu />
@@ -17,3 +19,16 @@
     <a href="." class="reload">Recargar</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Sesion.RestaurarAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+}

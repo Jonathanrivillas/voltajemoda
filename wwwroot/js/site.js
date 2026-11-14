@@ -80,6 +80,12 @@ window.carritoUi = {
         if (!el) return;
         const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(el);
         offcanvas.show();
+    },
+    cerrar(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(el);
+        offcanvas.hide();
     }
 };
 

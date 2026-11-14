@@ -19,7 +19,9 @@
 
         @for (var i = 0; i < imagenes.Count; i++)
         {
-            <img src="@imagenes[i]" class="producto-card-img @(i == 0 ? "activa" : "")" alt="@Producto.Nombre" />
+            <img src="@imagenes[i]" class="producto-card-img @(i == 0 ? "activa" : "")"
+                 alt="@Producto.Nombre" referrerpolicy="no-referrer"
+                 onerror="this.onerror=null; this.src='https://placehold.co/600x400/222/white?text=Voltaje+Moda';" />
         }
 
         <a href="/productos/@Producto.Id" class="producto-card-media-link" aria-label="@Producto.Nombre"></a>
@@ -82,8 +84,15 @@
         }
 
         imagenes.AddRange(Producto.ImagenesAdicionales
+            .Where(i => !string.IsNullOrWhiteSpace(i.Url)
+                && !string.Equals(i.Url, Producto.ImagenUrl, StringComparison.Ordinal))
             .OrderBy(i => i.Orden)
             .Select(i => i.Url));
+
+        if (imagenes.Count == 0)
+        {
+            imagenes.Add("https://placehold.co/600x400/222/white?text=Voltaje+Moda");
+        }
 
         return imagenes;
     }
